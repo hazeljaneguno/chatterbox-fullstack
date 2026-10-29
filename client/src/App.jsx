@@ -1,0 +1,912 @@
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { MessageCircle, X, LoaderCircle, Plus } from "lucide-react";
+
+import AuthScreen from "./components/AuthScreen.jsx";
+import Avatar from "./components/Avatar.jsx";
+import MessageList from "./components/MessageList.jsx";
+import ChatSidebar from "./components/ChatSidebar.jsx";
+import ChatHeader from "./components/ChatHeader.jsx";
+import MessageComposer from "./components/MessageComposer.jsx";
+import FindPeopleModal from "./components/FindPeopleModal.jsx";
+import CreateGroupModal from "./components/CreateGroupModal.jsx";
+
+import { api, connectSocket } from "./api.js";
+import { sameId } from "./utils/chatHelpers.js";
+
+import useChatMessages from "./hooks/useChatMessages";
+import useChatSocket from "./hooks/useChatSocket";
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [chats, setChats] = useState([]);
+  const [activeId, setActiveId] = useState("");
+  const [search, setSearch] = useState("");
+  const [draft, setDraft] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editDraft, setEditDraft] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [newSearch, setNewSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [toast, setToast] = useState("");
+
+  const [error, setError] = useState("");
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [onlineIds, setOnlineIds] = useState(() => new Set());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [socketStatus, setSocketStatus] = useState("connecting");
+  const [chatFilter, setChatFilter] = useState("all");
+  const [groups, setGroups] = useState([]);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [savingGroup, setSavingGroup] = useState(false);
+const [socket, setSocket] = useState(null);
+const [mentionToast, setMentionToast] = useState(null);
+const [mentionSuccessToast, setMentionSuccessToast] = useState("");
+const [replyTo, setReplyTo] = useState(null);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+  const socketRef = useRef(null);
+  const toastTimer = useRef(null);
+  const activeIdRef = useRef(activeId);
+
+  const activeChat = chats.find((chat) => sameId(chat.id, activeId));
+useChatMessages({
+  socket,
+  user,
+  activeIdRef,
+  setChats,
+  setOnlineIds,
+});
+
+useChatSocket({
+  socket,
+  setSocketStatus,
+  setError,
+  setMentionToast,
+});
+function handleReply(message) {
+  setReplyTo(message);
+  inputRef.current?.focus();
+}
+// Update group messages when an attachment is removed.
+useEffect(() => {
+  if (!socket) return;
+
+  function handleAttachmentRemoved(updatedMessage) {
+    setChats((previousChats) =>
+      previousChats.map((chat) => {
+        if (
+          !chat.isGroup ||
+          !sameId(chat.id, updatedMessage.groupId)
+        ) {
+          return chat;
+        }
+
+        const messages = chat.messages || [];
+
+        // If the message contained only an image, remove
+        // the entire message from the conversation.
+        if (updatedMessage.deleted) {
+          return {
+            ...chat,
+            messages: messages.filter(
+              (message) =>
+                !sameId(message.id, updatedMessage.id)
+            ),
+          };
+        }
+
+        // If the message also contained text, preserve
+        // the text and remove only the attachment.
+        return {
+          ...chat,
+          messages: messages.map((message) =>
+            sameId(message.id, updatedMessage.id)
+              ? { ...message, attachment: null }
+              : message
+          ),
+        };
+      })
+    );
+  }
+
+  socket.on(
+    "group:message:attachment-removed",
+    handleAttachmentRemoved
+  );
+
+  return () => {
+    socket.off(
+      "group:message:attachment-removed",
+      handleAttachmentRemoved
+    );
+  };
+}, [socket]);
+  const filteredChats = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return chats.filter((chat) => {
+      const name = chat.name || chat.username || "";
+      const matchesSearch =
+        !term ||
+        name.toLowerCase().includes(term) ||
+        (chat.email || "").toLowerCase().includes(term);
+
+      const matchesFilter =
+        chatFilter === "all" ||
+        (chatFilter === "unread" && (chat.unread || 0) > 0) ||
+        (chatFilter === "groups" && chat.isGroup === true);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [chats, search, chatFilter]);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  const showNotice = useCallback((message) => {
+    setToast(message);
+
+    if (toastTimer.current) {
+      window.clearTimeout(toastTimer.current);
+    }
+
+    toastTimer.current = window.setTimeout(() => setToast(""), 2800);
+  }, []);
+
+  const addOrUpdateChat = useCallback((person) => {
+    setChats((previous) => {
+      const existing = previous.find((chat) => sameId(chat.id, person.id));
+
+      if (existing) {
+        return previous.map((chat) =>
+          sameId(chat.id, person.id) ? { ...chat, ...person } : chat
+        );
+      }
+
+      return [{ ...person, messages: [], unread: 0 }, ...previous];
+    });
+  }, []);
+
+  // Restore the login session.
+  useEffect(() => {
+    let cancelled = false;
+
+    api.me()
+      .then(({ user: current }) => {
+        if (!cancelled) setUser(current);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingSession(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
+  // Load conversations and connect Socket.IO.
+  useEffect(() => {
+    if (!user) return;
+
+    let mounted = true;
+
+    const chatSocket = connectSocket();
+    socketRef.current = chatSocket;
+    setSocket(chatSocket);
+
+    api.users()
+      .then(({ users }) => {
+        if (!mounted) return;
+
+        setChats((previous) => {
+          const existingPrivateChats = new Map(
+            previous
+              .filter((chat) => !chat.isGroup)
+              .map((chat) => [String(chat.id), chat])
+          );
+
+          const privateChats = users.map((person) => {
+            const existing = existingPrivateChats.get(
+              String(person.id)
+            );
+
+            return {
+              ...person,
+              messages: existing?.messages || [],
+              unread: existing?.unread || 0,
+            };
+          });
+
+          return [
+            ...previous.filter((chat) => chat.isGroup),
+            ...privateChats,
+          ];
+        });
+      })
+      .catch((err) => {
+        if (mounted) setError(err.message);
+      });
+
+    api.groups()
+      .then(({ groups: savedGroups }) => {
+        if (!mounted) return;
+
+        setGroups(savedGroups);
+
+        setChats((previous) => {
+          const groupChats = savedGroups.map((group) => {
+            const existing = previous.find(
+              (chat) =>
+                chat.isGroup && sameId(chat.id, group.id)
+            );
+
+            return {
+              ...group,
+              isGroup: true,
+              messages: existing?.messages || [],
+              unread: existing?.unread || 0,
+            };
+          });
+
+          return [
+            ...groupChats,
+            ...previous.filter((chat) => !chat.isGroup),
+          ];
+        });
+      })
+      .catch((err) => {
+        if (mounted) setError(err.message);
+      });
+
+    return () => {
+      mounted = false;
+
+      chatSocket.disconnect();
+
+      if (socketRef.current === chatSocket) {
+        socketRef.current = null;
+      }
+
+      setSocket((current) =>
+        current === chatSocket ? null : current
+      );
+    };
+  }, [user]);
+
+
+  // Load the selected conversation's history.
+  useEffect(() => {
+    if (!user || !activeId) return;
+
+    let cancelled = false;
+
+    setLoadingMessages(true);
+    setError("");
+
+    const historyRequest = activeChat?.isGroup
+      ? api.groupMessages(activeId)
+      : api.messages(activeId);
+
+    historyRequest
+      .then(({ messages }) => {
+        if (cancelled) return;
+
+        setChats((previous) =>
+          previous.map((chat) =>
+            sameId(chat.id, activeId)
+              ? { ...chat, messages, unread: 0 }
+              : chat
+          )
+        );
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMessages(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, activeId, activeChat?.isGroup]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [activeId, activeChat?.messages?.length]);
+
+  // Search for people while either modal is open.
+  useEffect(() => {
+    if (!showNewChat && !showCreateGroup) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const { users } = await api.users(newSearch);
+        setSearchResults(users);
+      } catch (err) {
+        setError(err.message);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [showNewChat, showCreateGroup, newSearch]);
+
+  async function handleLogout() {
+    try {
+      await api.logout();
+    } catch {
+      // Clear the local UI even if the network is unavailable.
+    }
+
+    socketRef.current?.disconnect();
+    setUser(null);
+    setChats([]);
+    setActiveId("");
+    setMobileChatOpen(false);
+    setMenuOpen(false);
+    setGroups([]);
+    setSelectedMemberIds([]);
+    setShowCreateGroup(false);
+  }
+
+  function selectChat(person) {
+    addOrUpdateChat({ ...person, unread: 0 });
+    setActiveId(person.id);
+    activeIdRef.current = person.id;
+    setMobileChatOpen(true);
+    setShowNewChat(false);
+    setNewSearch("");
+    setSearchResults([]);
+
+    setChats((previous) =>
+      previous.map((chat) =>
+        sameId(chat.id, person.id) ? { ...chat, unread: 0 } : chat
+      )
+    );
+  }
+
+  async function handleCreateGroup(event) {
+    event.preventDefault();
+
+    const name = groupName.trim();
+
+    if (name.length < 2 || name.length > 50) {
+      setError("Group name must be between 2 and 50 characters.");
+      return;
+    }
+
+    if (selectedMemberIds.length === 0) {
+      setError("Choose at least one person for your group.");
+      return;
+    }
+
+    if (savingGroup) return;
+
+    setSavingGroup(true);
+    setError("");
+
+    try {
+      const { group } = await api.createGroup({
+        name,
+        memberIds: selectedMemberIds,
+      });
+
+      const newGroup = {
+        ...group,
+        isGroup: true,
+        messages: [],
+        unread: 0,
+      };
+
+      setGroups((previous) => [group, ...previous]);
+
+      setChats((previous) => [
+        newGroup,
+        ...previous.filter(
+          (chat) => !(chat.isGroup && sameId(chat.id, group.id))
+        ),
+      ]);
+
+      setActiveId(group.id);
+      activeIdRef.current = group.id;
+      setMobileChatOpen(true);
+      setShowCreateGroup(false);
+      setGroupName("");
+      setSelectedMemberIds([]);
+      setNewSearch("");
+      setError("");
+
+      showNotice("Group created successfully!");
+    } catch (err) {
+      setError(err.message || "Could not create the group.");
+    } finally {
+      setSavingGroup(false);
+    }
+  }
+
+  async function handleDeleteGroup(group) {
+    if (!group?.isGroup) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${group.name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.deleteGroup(group.id);
+
+      setChats((previous) =>
+        previous.filter((chat) => !sameId(chat.id, group.id))
+      );
+
+      setGroups((previous) =>
+        previous.filter((item) => !sameId(item.id, group.id))
+      );
+
+      if (sameId(activeId, group.id)) {
+        setActiveId("");
+        activeIdRef.current = "";
+        setMobileChatOpen(false);
+      }
+
+      showNotice("Group deleted successfully.");
+    } catch (err) {
+      setError(err.message || "Could not delete the group.");
+    }
+  }
+
+  
+
+async function sendMessage(event, selectedFile = null) {
+  event.preventDefault();
+
+  const text = draft.trim();
+
+  if ((!text && !selectedFile) || !activeChat) return;
+
+  if (!socketRef.current?.connected) {
+    setError("You're offline from the chat server. Reconnect and try again.");
+    throw new Error("You're offline from the chat server.");
+  }
+
+  setError("");
+
+  const isGroup = activeChat.isGroup;
+  const groupName = activeChat.name || "your group";
+
+  const mentions = isGroup
+    ? [...new Set(text.match(/@[a-zA-Z0-9_.-]+/g) || [])]
+    : [];
+
+  const eventName = isGroup
+    ? "group:message:send"
+    : "message:send";
+
+  let attachment = null;
+
+  try {
+    // 1. Upload the file first, if one was selected.
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await api.uploadFile(formData);
+      attachment = response.attachment;
+
+      if (!attachment?.url) {
+        throw new Error("The server did not return the uploaded file.");
+      }
+    }
+
+    // 2. Send the message and attachment through Socket.IO.
+   
+const payload = isGroup
+  ? {
+      groupId: activeChat.id,
+      text,
+      attachment,
+      replyTo: replyTo?.id || null,
+    }
+  : {
+      recipientId: activeChat.id,
+      text,
+      attachment,
+      replyTo: replyTo?.id || null,
+    };
+
+    const result = await new Promise((resolve, reject) => {
+      socketRef.current.emit(eventName, payload, (response) => {
+        if (!response?.ok) {
+          reject(new Error(response?.message || "Message could not be sent."));
+          return;
+        }
+
+        resolve(response);
+      });
+    });
+
+    // 3. Clear the text only after successful sending.
+   setReplyTo(null);
+
+    if (mentions.length > 0) {
+      setMentionSuccessToast(
+        `Message sent! You mentioned ${mentions.join(", ")} in ${groupName}.`
+      );
+
+      setTimeout(() => setMentionSuccessToast(""), 4000);
+    }
+
+    inputRef.current?.focus();
+
+    return result;
+  } catch (error) {
+    setError(error.message || "Unable to send your message.");
+    throw error;
+  }
+}
+
+
+
+  function startEditing(message) {
+    setEditingMessageId(message.id);
+    setEditDraft(message.text);
+    setError("");
+  }
+
+  function cancelEditing() {
+    setEditingMessageId("");
+    setEditDraft("");
+    setSavingEdit(false);
+  }
+
+  const removeImage = useCallback((messageId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this image?"
+    );
+
+    if (!confirmed) return;
+
+    const currentSocket = socketRef.current;
+
+    if (!currentSocket?.connected) {
+      setError("You're offline. Please reconnect and try again.");
+      return;
+    }
+
+    setError("");
+
+    currentSocket.timeout(5000).emit(
+      "group:message:remove-attachment",
+      { messageId },
+      (timeoutError, result) => {
+        if (timeoutError) {
+          setError("The server did not respond. Please try again.");
+          return;
+        }
+
+        if (!result?.ok) {
+          setError(result?.message || "Unable to remove image.");
+        }
+      }
+    );
+  }, []);
+
+function saveEditedMessage(event) {
+  event.preventDefault();
+
+  const text = editDraft.trim();
+
+  if (!text || !editingMessageId || savingEdit) {
+    return;
+  }
+
+  if (!socketRef.current?.connected) {
+    setError("You're offline. Please reconnect and try again.");
+    return;
+  }
+
+  setSavingEdit(true);
+  setError("");
+
+  socketRef.current.timeout(5000).emit(
+    "message:edit",
+    { messageId: editingMessageId, text },
+    (timeoutError, result) => {
+      setSavingEdit(false);
+
+      if (timeoutError) {
+        setError("The server did not respond. Please try again.");
+        return;
+      }
+
+      if (!result?.ok) {
+        setError(result?.message || "Message could not be edited.");
+        return;
+      }
+
+      cancelEditing();
+    }
+  );
+}
+  if (checkingSession) {
+    return (
+      <div className="full-loading">
+        <LoaderCircle className="spin" size={28} />
+        <span>Getting your chats ready...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AuthScreen
+        onAuthenticated={(authenticatedUser) => {
+          setUser(authenticatedUser);
+          setError("");
+        }}
+      />
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <div className={mobileChatOpen ? "sidebar-hidden-mobile" : ""}>
+        <ChatSidebar
+          user={user}
+          chats={chats}
+          activeId={activeId}
+          search={search}
+          setSearch={setSearch}
+          filteredChats={filteredChats}
+          chatFilter={chatFilter}
+          setChatFilter={setChatFilter}
+          onlineIds={onlineIds}
+          socketStatus={socketStatus}
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          showNotice={showNotice}
+          handleLogout={handleLogout}
+          selectChat={selectChat}
+          setShowNewChat={setShowNewChat}
+          setShowCreateGroup={setShowCreateGroup}
+          setError={setError}
+          setSelectedMemberIds={setSelectedMemberIds}
+          setGroupName={setGroupName}
+          setNewSearch={setNewSearch}
+        />
+      </div>
+
+      <section
+        className={`chat-panel ${
+          mobileChatOpen ? "chat-panel-mobile-open" : ""
+        }`}
+      >
+        {activeChat ? (
+          <>
+            <ChatHeader
+              activeChat={activeChat}
+              onlineIds={onlineIds}
+              setMobileChatOpen={setMobileChatOpen}
+              showNotice={showNotice}
+              handleDeleteGroup={handleDeleteGroup}
+            />
+
+            {error && (
+              <div className="inline-error" role="alert">
+                <span>{error}</span>
+                <button
+                  onClick={() => setError("")}
+                  aria-label="Dismiss error"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            )}
+
+            <div className="conversation-body">
+              <div className="day-divider">
+                <span />
+                <p>MESSAGES</p>
+                <span />
+              </div>
+
+              {loadingMessages && (
+                <div className="loading-messages">
+                  <LoaderCircle className="spin" size={18} />
+                  Loading conversation...
+                </div>
+              )}
+
+              {!loadingMessages &&
+                (activeChat.messages || []).length === 0 && (
+                  <div className="welcome-state">
+                    <div className="welcome-icon">
+                      <MessageCircle size={27} />
+                    </div>
+                    <h3>
+                      Say hello to {activeChat.username || activeChat.name}
+                    </h3>
+                    <p>
+                      Your conversation starts here. Send the first message!
+                    </p>
+                  </div>
+                )}
+
+
+  <MessageList
+    messages={activeChat.messages || []}
+    user={user}
+    currentUserId={user.id}
+    activeChat={activeChat}
+    isGroup={Boolean(activeChat?.isGroup)}
+    onReply={handleReply}
+    editingMessageId={editingMessageId}
+    editDraft={editDraft}
+    savingEdit={savingEdit}
+    setEditDraft={setEditDraft}
+    saveEditedMessage={saveEditedMessage}
+    cancelEditing={cancelEditing}
+    startEditing={startEditing}
+    removeImage={removeImage}
+  />
+
+
+              <div ref={bottomRef} />
+            </div>
+
+
+{replyTo && (
+  <div className="reply-preview">
+    <div className="reply-preview-content">
+      <strong>
+        Replying to {replyTo.senderName || "message"}
+      </strong>
+
+      <p>
+        {replyTo.text ||
+          (replyTo.attachment?.mimeType?.startsWith("image/")
+            ? "📷 Photo"
+            : "Attachment")}
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => setReplyTo(null)}
+      aria-label="Cancel reply"
+    >
+      <X size={18} />
+    </button>
+  </div>
+)}
+
+<MessageComposer
+  activeChat={activeChat}
+  draft={draft}
+  setDraft={setDraft}
+  inputRef={inputRef}
+  sendMessage={sendMessage}
+  showNotice={showNotice}
+  socketStatus={socketStatus}
+  mentionUsers={
+    activeChat.isGroup
+      ? activeChat.members || []
+      : []
+  }
+/>
+
+
+          </>
+        ) : (
+          <div className="empty-chat-panel">
+            <div className="welcome-icon">
+              <MessageCircle size={28} />
+            </div>
+            <h2>Your conversations, all in one place.</h2>
+            <p>
+              Select someone from your people list or start a new conversation.
+            </p>
+            <button
+              className="create-chat-submit"
+              onClick={() => setShowNewChat(true)}
+            >
+              <Plus size={18} /> Find people
+            </button>
+          </div>
+        )}
+      </section>
+
+      <FindPeopleModal
+        open={showNewChat}
+        setOpen={setShowNewChat}
+        newSearch={newSearch}
+        setNewSearch={setNewSearch}
+        searchResults={searchResults}
+        selectChat={selectChat}
+      />
+
+      <CreateGroupModal
+        open={showCreateGroup}
+        setOpen={setShowCreateGroup}
+        groupName={groupName}
+        setGroupName={setGroupName}
+        newSearch={newSearch}
+        setNewSearch={setNewSearch}
+        searchResults={searchResults}
+        user={user}
+        selectedMemberIds={selectedMemberIds}
+        setSelectedMemberIds={setSelectedMemberIds}
+        savingGroup={savingGroup}
+        handleCreateGroup={handleCreateGroup}
+      />
+
+      {toast && (
+        <div className="toast-message">
+          <span>✳</span>
+          {toast}
+        </div>
+      )}
+      {mentionToast && (
+  <div className="mention-toast" role="status">
+    <div>
+      <strong>You were mentioned!</strong>
+      <p>
+        {mentionToast.senderName} mentioned you in{" "}
+        {mentionToast.groupName}
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => setMentionToast(null)}
+      aria-label="Dismiss notification"
+    >
+      ×
+    </button>
+  </div>
+)}
+      
+{mentionSuccessToast && (
+  <div className="mention-success-toast" role="status">
+    <span className="mention-success-icon">✓</span>
+
+    <div className="mention-success-content">
+      <strong>Message sent!</strong>
+      <p>{mentionSuccessToast.replace("Message sent! ", "")}</p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => setMentionSuccessToast("")}
+      aria-label="Dismiss notification"
+    >
+      ×
+    </button>
+  </div>
+)}
+
+    </main>
+  );
+}
