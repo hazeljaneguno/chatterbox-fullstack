@@ -7,16 +7,12 @@ import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = Router();
 
-function cookieOptions() {
-  return {
-    httpOnly: true,
-    secure: config.cookieSecure,
-    sameSite: config.cookieSameSite,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-  };
-}
-
+res.clearCookie("chatterbox_session", {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/",
+});
 function publicUser(user) {
   return { id: user._id.toString(), username: user.username, email: user.email };
 }
