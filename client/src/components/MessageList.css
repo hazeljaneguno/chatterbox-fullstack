@@ -245,36 +245,45 @@
     outline: 2px solid #e9a45b;
     box-shadow: 0 0 18px rgba(233, 164, 91, 0.4);
   }
-}.reply-quote {
+}/* Messenger-style reply preview */
+.reply-quote {
   display: block;
   width: 100%;
-  padding: 9px 12px;
   margin-bottom: 8px;
+  padding: 9px 12px;
+
   text-align: left;
-  cursor: pointer;
   border: none;
-  border-left: 3px solid #e9a45b;
+  border-left: 3px solid #8b75e8;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.07);
+
+  background: rgba(0, 0, 0, 0.045);
   color: inherit;
-  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.reply-quote-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.reply-quote-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.55;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .reply-quote:hover {
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.message-highlighted .message-bubble {
-  animation: reply-message-highlight 1.8s ease;
-}
-
-@keyframes reply-message-highlight {
-  0%, 100% {
-    outline: 2px solid transparent;
-  }
-
-  20%, 75% {
-    outline: 2px solid #e9a45b;
-    box-shadow: 0 0 18px rgba(233, 164, 91, 0.4);
-  }
+  background: rgba(0, 0, 0, 0.08);
 }
