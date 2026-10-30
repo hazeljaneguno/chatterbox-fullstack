@@ -963,17 +963,17 @@ setShowSettings={setShowSettings}
         selectChat={selectChat}
       />
 <SettingsModal
-  open={showSettings}
+  isOpen={showSettings}
   onClose={() => setShowSettings(false)}
   theme={theme}
   onThemeChange={handleThemeChange}
-  saving={savingTheme}
+  savingTheme={savingTheme}
 />
 <ChatBackgroundPicker
-  open={backgroundPickerOpen}
+  isOpen={backgroundPickerOpen}
   onClose={() => setBackgroundPickerOpen(false)}
-  activeChat={activeChat}
-  onSave={handleBackgroundChange}
+  currentBackground={activeChat?.background || "default"}
+  onSelect={handleBackgroundChange}
   saving={savingBackground}
 />
       <CreateGroupModal
