@@ -33,7 +33,8 @@ export default function ChatSidebar({
   setError,
   setSelectedMemberIds,
   setGroupName,
-  setNewSearch,
+setNewSearch,
+setShowSettings,
 }) {
   return (
     <aside className="sidebar">
@@ -57,17 +58,24 @@ export default function ChatSidebar({
         {menuOpen && (
           <div className="floating-menu">
             <button
-              onClick={() => {
-                setMenuOpen(false);
-                showNotice("Settings are coming soon.");
-              }}
-            >
-              <Settings size={16} /> Settings
-            </button>
+  onClick={() => {
+    setMenuOpen(false);
+    setShowSettings(true);
+  }}
+>
+  <Settings size={16} />
+  Settings
+</button>
 
-            <button onClick={handleLogout}>
-              <LogOut size={16} /> Log out
-            </button>
+            <button
+  onClick={() => {
+    setMenuOpen(false);
+    handleLogout();
+  }}
+>
+  <LogOut size={16} />
+  Log out
+</button>
           </div>
         )}
       </div>

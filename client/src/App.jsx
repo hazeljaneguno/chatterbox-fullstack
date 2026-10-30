@@ -17,7 +17,8 @@ import ChatHeader from "./components/ChatHeader.jsx";
 import MessageComposer from "./components/MessageComposer.jsx";
 import FindPeopleModal from "./components/FindPeopleModal.jsx";
 import CreateGroupModal from "./components/CreateGroupModal.jsx";
-
+import SettingsModal from "./components/SettingsModal.jsx";
+import ChatBackgroundPicker from "./components/ChatBackgroundPicker.jsx";
 import { api, connectSocket } from "./api.js";
 import { sameId } from "./utils/chatHelpers.js";
 
@@ -60,7 +61,11 @@ const [replyTo, setReplyTo] = useState(null);
   const socketRef = useRef(null);
   const toastTimer = useRef(null);
   const activeIdRef = useRef(activeId);
-
+const [showSettings, setShowSettings] = useState(false);
+const [backgroundPickerOpen, setBackgroundPickerOpen] = useState(false);
+const [theme, setTheme] = useState("light");
+const [savingTheme, setSavingTheme] = useState(false);
+const [savingBackground, setSavingBackground] = useState(false);
   const activeChat = chats.find((chat) => sameId(chat.id, activeId));
 useChatMessages({
   socket,
@@ -76,6 +81,51 @@ useChatSocket({
   setError,
   setMentionToast,
 });
+function openBackgroundPicker(chat) {
+  if (!chat) return;
+
+  setBackgroundPickerOpen(true);
+}
+
+async function handleBackgroundChange(background) {
+  if (!activeChat || savingBackground) return;
+
+  setSavingBackground(true);
+  setError("");
+
+try {
+  if (activeChat.isGroup) {
+    await api.updateGroupBackground(activeChat.id, background);
+
+    // Update the groups list.
+    setGroups((previous) =>
+      previous.map((group) =>
+        sameId(group.id, activeChat.id)
+          ? { ...group, background }
+          : group
+      )
+    );
+  } else {
+    await api.updateConversationBackground(activeChat.id, background);
+  }
+
+  // Update the current user's chat list.
+  setChats((previous) =>
+    previous.map((chat) =>
+      sameId(chat.id, activeChat.id)
+        ? { ...chat, background }
+        : chat
+    )
+  );
+
+    setBackgroundPickerOpen(false);
+    showNotice("Chat background updated.");
+  } catch (err) {
+    setError(err.message || "Could not update chat background.");
+  } finally {
+    setSavingBackground(false);
+  }
+}
 function handleReply(message) {
   setReplyTo(message);
   inputRef.current?.focus();
@@ -156,7 +206,38 @@ useEffect(() => {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+useEffect(() => {
+  if (!user) return;
 
+  const savedTheme = user.theme === "dark" ? "dark" : "light";
+
+  setTheme(savedTheme);
+  document.documentElement.setAttribute("data-theme", savedTheme);
+}, [user]);
+async function handleThemeChange(nextTheme) {
+  if (!["light", "dark"].includes(nextTheme)) return;
+  if (savingTheme || nextTheme === theme) return;
+
+  setSavingTheme(true);
+  setError("");
+
+  try {
+    const result = await api.updateTheme(nextTheme);
+    const savedTheme = result.theme || nextTheme;
+
+    setTheme(savedTheme);
+    setUser((previous) =>
+      previous ? { ...previous, theme: savedTheme } : previous
+    );
+
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    showNotice("Appearance updated.");
+  } catch (err) {
+    setError(err.message || "Could not update appearance.");
+  } finally {
+    setSavingTheme(false);
+  }
+}
   const showNotice = useCallback((message) => {
     setToast(message);
 
@@ -478,7 +559,40 @@ useEffect(() => {
   }
 
   
+useEffect(() => {
+  if (!activeChat || activeChat.isGroup) return;
 
+  let cancelled = false;
+
+  api.getConversationSettings(activeChat.id)
+    .then(({ background }) => {
+      if (cancelled) return;
+
+      setChats((previous) =>
+  previous.map((chat) => {
+    if (!sameId(chat.id, activeChat.id)) return chat;
+
+    const savedBackground = background || "default";
+
+    if (chat.background === savedBackground) return chat;
+
+    return {
+      ...chat,
+      background: savedBackground,
+    };
+  })
+);
+    })
+    .catch((err) => {
+      if (!cancelled) {
+        console.error("Could not load conversation settings:", err);
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [activeChat?.id, activeChat?.isGroup]);
 async function sendMessage(event, selectedFile = null) {
   event.preventDefault();
 
@@ -694,7 +808,8 @@ function saveEditedMessage(event) {
           setError={setError}
           setSelectedMemberIds={setSelectedMemberIds}
           setGroupName={setGroupName}
-          setNewSearch={setNewSearch}
+setNewSearch={setNewSearch}
+setShowSettings={setShowSettings}
         />
       </div>
 
@@ -711,6 +826,7 @@ function saveEditedMessage(event) {
               setMobileChatOpen={setMobileChatOpen}
               showNotice={showNotice}
               handleDeleteGroup={handleDeleteGroup}
+              onOpenBackgroundPicker={openBackgroundPicker}
             />
 
             {error && (
@@ -725,7 +841,7 @@ function saveEditedMessage(event) {
               </div>
             )}
 
-            <div className="conversation-body">
+            <div className={`conversation-body chat-background-${activeChat.background || "default"}  `}>
               <div className="day-divider">
                 <span />
                 <p>MESSAGES</p>
@@ -846,7 +962,20 @@ function saveEditedMessage(event) {
         searchResults={searchResults}
         selectChat={selectChat}
       />
-
+<SettingsModal
+  open={showSettings}
+  onClose={() => setShowSettings(false)}
+  theme={theme}
+  onThemeChange={handleThemeChange}
+  saving={savingTheme}
+/>
+<ChatBackgroundPicker
+  open={backgroundPickerOpen}
+  onClose={() => setBackgroundPickerOpen(false)}
+  activeChat={activeChat}
+  onSave={handleBackgroundChange}
+  saving={savingBackground}
+/>
       <CreateGroupModal
         open={showCreateGroup}
         setOpen={setShowCreateGroup}
