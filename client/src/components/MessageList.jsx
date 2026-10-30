@@ -270,11 +270,7 @@ function getSenderId(message) {
             : "Message")}
       </span>
     </div>
-{mine && (
-  <div className="message-avatar-space">
-    <Avatar user={user} />
-  </div>
-)}
+
     <p className="reply-quote-text">
       {getReplyPreview(replyTarget)}
     </p>
