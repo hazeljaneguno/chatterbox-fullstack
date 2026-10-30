@@ -1,9 +1,12 @@
 
+import { useState } from "react";
 import {
   ArrowLeft,
   MoreHorizontal,
   Phone,
   Video,
+  Palette,
+  Trash2,
 } from "lucide-react";
 
 import Avatar from "./Avatar.jsx";
@@ -14,10 +17,22 @@ export default function ChatHeader({
   setMobileChatOpen,
   showNotice,
   handleDeleteGroup,
+  onOpenBackgroundPicker,
 }) {
-  const isGroup = activeChat.isGroup;
+  const [menuOpen, setMenuOpen] = useState(false);
 
+  const isGroup = activeChat.isGroup;
   const isOnline = onlineIds.has(String(activeChat.id));
+
+  const handleBackgroundClick = () => {
+    setMenuOpen(false);
+    onOpenBackgroundPicker?.(activeChat);
+  };
+
+  const handleDeleteClick = () => {
+    setMenuOpen(false);
+    handleDeleteGroup(activeChat);
+  };
 
   return (
     <header className="chat-header">
@@ -78,19 +93,35 @@ export default function ChatHeader({
 
         <span className="action-divider" />
 
-        <button
-          className="icon-button"
-          aria-label={isGroup ? "Delete group" : "Conversation options"}
-          onClick={() => {
-            if (isGroup) {
-              handleDeleteGroup(activeChat);
-            } else {
-              showNotice("Conversation options are coming soon.");
-            }
-          }}
-        >
-          <MoreHorizontal size={21} />
-        </button>
+        <div className="chat-options">
+          <button
+            className="icon-button"
+            aria-label="Conversation options"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((previous) => !previous)}
+          >
+            <MoreHorizontal size={21} />
+          </button>
+
+          {menuOpen && (
+            <div className="chat-options-menu">
+              <button onClick={handleBackgroundClick}>
+                <Palette size={17} />
+                <span>Change background</span>
+              </button>
+
+              {isGroup && (
+                <button
+                  className="danger-option"
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2 size={17} />
+                  <span>Delete group</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

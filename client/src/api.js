@@ -25,6 +25,31 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+
+  // Account settings
+// Account settings
+updateTheme: (theme) =>
+  request("/api/settings/theme", {
+    method: "PATCH",
+    body: JSON.stringify({ theme }),
+  }),
+
+// Private conversation settings
+getConversationSettings: (userId) =>
+  request(`/api/conversations/${encodeURIComponent(userId)}/settings`),
+
+updateConversationBackground: (userId, background) =>
+  request(`/api/conversations/${encodeURIComponent(userId)}/settings`, {
+    method: "PATCH",
+    body: JSON.stringify({ background }),
+  }),
+
+// Group conversation settings
+updateGroupBackground: (groupId, background) =>
+  request(`/api/groups/${encodeURIComponent(groupId)}/background`, {
+    method: "PATCH",
+    body: JSON.stringify({ background }),
+  }),
   // Authentication
   me: () => request("/api/auth/me"),
   signup: (payload) =>

@@ -19,21 +19,42 @@ router.get("/:userId", requireAuth, async (req, res) => {
     if (!otherUser) return res.status(404).json({ message: "User not found." });
 
     const key = conversationKey(req.user._id, otherUser._id);
-    const messages = await Message.find({ conversationKey: key })
-      .sort({ createdAt: 1 })
-      .limit(500)
-      .populate("sender", "_id username")
-      .lean();
+const messages = await Message.find({ conversationKey: key })
+  .sort({ createdAt: 1 })
+  .limit(500)
+  .populate("sender", "_id username")
+  .populate({
+    path: "replyTo",
+    select: "_id text sender",
+    populate: {
+      path: "sender",
+      select: "_id username",
+    },
+  })
+  .lean();
 
     res.json({
-      messages: messages.map((message) => ({
-        id: message._id.toString(),
-        senderId: message.sender._id.toString(),
-        senderName: message.sender.username,
-        recipientId: message.recipient.toString(),
-        text: message.text,
-        createdAt: message.createdAt,
-      })),
+messages: messages.map((message) => ({
+  id: message._id.toString(),
+
+  senderId: message.sender?._id?.toString(),
+  senderName: message.sender?.username,
+
+  recipientId: message.recipient.toString(),
+
+  text: message.text,
+
+  createdAt: message.createdAt,
+
+  replyTo: message.replyTo
+    ? {
+        id: message.replyTo._id.toString(),
+        senderId: message.replyTo.sender?._id?.toString(),
+        senderName: message.replyTo.sender?.username,
+        text: message.replyTo.text,
+      }
+    : null,
+})),
     });
   } catch (error) {
     console.error("Load messages error:", error);

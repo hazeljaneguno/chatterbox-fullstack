@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema(
       index: true,
       maxlength: 254,
     },
+    theme: {
+  type: String,
+  enum: ["light", "dark"],
+  default: "light",
+},
     passwordHash: { type: String, required: true, select: false },
   },
   { timestamps: true }

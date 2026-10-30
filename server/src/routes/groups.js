@@ -20,14 +20,15 @@ router.get("/", requireAuth, async (req, res, next) => {
 
     res.json({
       groups: groups.map((group) => ({
-        id: group._id.toString(),
-        name: group.name,
-        creatorId: group.creator.toString(),
-        members: group.members.map((member) => ({
-          id: member._id.toString(),
-          username: member.username,
-        })),
-      })),
+  id: group._id.toString(),
+  name: group.name,
+  creatorId: group.creator.toString(),
+  background: group.background || "default",
+  members: group.members.map((member) => ({
+    id: member._id.toString(),
+    username: member.username,
+  })),
+})),
     });
   } catch (error) {
     next(error);
@@ -139,6 +140,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         id: savedGroup._id.toString(),
         name: savedGroup.name,
         creatorId: savedGroup.creator.toString(),
+        background: savedGroup.background || "default",
         members: savedGroup.members.map((member) => ({
           id: member._id.toString(),
           username: member.username,
@@ -205,5 +207,70 @@ res.json({
     next(error);
   }
 });
+// Change a group's shared background
+router.patch("/:groupId/background", requireAuth, async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { background } = req.body || {};
 
+    const allowedBackgrounds = [
+      "default",
+      "lavender",
+      "ocean",
+      "sunset",
+      "forest",
+    ];
+
+    if (!mongoose.isValidObjectId(groupId)) {
+      return res.status(400).json({
+        message: "Invalid group ID.",
+      });
+    }
+
+    if (!allowedBackgrounds.includes(background)) {
+      return res.status(400).json({
+        message: "Invalid background.",
+      });
+    }
+
+    const group = await Group.findOne({
+      _id: groupId,
+      members: req.user._id,
+    }).populate("members", "_id username");
+
+    if (!group) {
+      return res.status(404).json({
+        message: "Group not found or you are not a member.",
+      });
+    }
+
+    group.background = background;
+    await group.save();
+
+    const update = {
+      groupId: group._id.toString(),
+      background: group.background,
+      changedBy: {
+        id: String(req.user._id),
+        username: req.user.username,
+      },
+    };
+
+    const io = req.app.get("io");
+
+    for (const member of group.members) {
+      io?.to(`user:${member._id.toString()}`).emit(
+        "group:background:updated",
+        update
+      );
+    }
+
+    return res.json({
+      message: "Group background updated.",
+      ...update,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 export default router;

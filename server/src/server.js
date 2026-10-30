@@ -13,6 +13,8 @@ import User from "./models/User.js";
 import Message from "./models/Message.js";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
+import settingsRoutes from "./routes/settings.js";
+import conversationRoutes from "./routes/conversations.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { conversationKey } from "./routes/messages.js";
 import { configureSocketAuth } from "./utils/socketAuth.js";
@@ -50,8 +52,13 @@ app.use(
   })
 );
 
+// Parse request data BEFORE mounting routes
 app.use(express.json({ limit: "20kb" }));
 app.use(cookieParser());
+
+// API routes
+app.use("/api/settings", settingsRoutes);
+app.use("/api/conversations", conversationRoutes);
 
 app.get("/api/health", (_req, res) =>
   res.json({ status: "ok", service: "chatterbox-api" })
@@ -69,7 +76,7 @@ const io = new Server(server, {
   },
   maxHttpBufferSize: 1e6,
 });
-
+app.set("io", io);
 configureSocketAuth(io);
 
 io.on("connection", (socket) => {
@@ -338,7 +345,6 @@ io.on("connection", (socket) => {
     console.log("User disconnected:", socket.id);
   });
 });
-
 // ==========================================
 // PRIVATE MESSAGE HISTORY
 // ==========================================
@@ -360,16 +366,36 @@ app.get("/api/messages/:userId", requireAuth, async (req, res, next) => {
       .sort({ createdAt: 1 })
       .limit(500)
       .populate("sender", "_id username")
+      .populate({
+        path: "replyTo",
+        select: "_id text sender attachment",
+        populate: {
+          path: "sender",
+          select: "_id username",
+        },
+      })
       .lean();
 
     res.json({
       messages: messages.map((message) => ({
         id: message._id.toString(),
-        senderId: message.sender._id.toString(),
-        senderName: message.sender.username,
+        senderId: message.sender?._id?.toString(),
+        senderName: message.sender?.username,
         recipientId: message.recipient.toString(),
         text: message.text,
+        attachment: message.attachment || null,
         createdAt: message.createdAt,
+        updatedAt: message.updatedAt,
+
+        replyTo: message.replyTo
+          ? {
+              id: message.replyTo._id.toString(),
+              senderId: message.replyTo.sender?._id?.toString(),
+              senderName: message.replyTo.sender?.username,
+              text: message.replyTo.text,
+              attachment: message.replyTo.attachment || null,
+            }
+          : null,
       })),
     });
   } catch (error) {

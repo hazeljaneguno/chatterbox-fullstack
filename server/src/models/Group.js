@@ -15,6 +15,11 @@ const groupSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    background: {
+  type: String,
+  enum: ["default", "lavender", "ocean", "sunset", "forest"],
+  default: "default",
+},
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -22,6 +27,7 @@ const groupSchema = new mongoose.Schema(
         required: true,
       },
     ],
+    
   },
   { timestamps: true }
 );
