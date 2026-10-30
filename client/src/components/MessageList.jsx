@@ -22,6 +22,10 @@ function sameId(a, b) {
   return String(a) === String(b);
 }
 
+function getMessageId(message) {
+  return message?.id ?? message?._id;
+}
+
 function formatTime(date) {
   if (!date) return "";
 
@@ -77,29 +81,65 @@ export default function MessageList({
   onReply,
   removeImage,
 }) {
-  const swipeStartRef = useRef(null);
+const swipeStartRef = useRef(null);
 
-  const [selectedImage, setSelectedImage] = useState(null);
+const messageRefs = useRef(new Map());
+
+const [selectedImage, setSelectedImage] = useState(null);
+const [highlightedMessageId, setHighlightedMessageId] = useState(null);
 
   const loggedInUserId =
     currentUserId ?? user?.id ?? user?._id ?? user?.userId;
 
   const messageMap = new Map(
-    messages.map((message) => [String(message.id), message])
-  );
+  messages.map((message) => [
+    String(getMessageId(message)),
+    message,
+  ])
+);
 
-  function getSenderId(message) {
-    return message.senderId ?? message.sender?._id ?? message.sender?.id;
+function getSenderId(message) {
+  if (message.senderId != null) return message.senderId;
+
+  if (typeof message.sender === "object" && message.sender !== null) {
+    return message.sender._id ?? message.sender.id;
   }
+
+  return message.sender;
+}
 
   function isMine(message) {
     return sameId(getSenderId(message), loggedInUserId);
   }
 
+  function jumpToMessage(messageId) {
+  if (!messageId) return;
+
+  const target = messageRefs.current.get(String(messageId));
+
+  if (!target) {
+    console.warn("Original message is not currently loaded.");
+    return;
+  }
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  setHighlightedMessageId(String(messageId));
+
+  window.setTimeout(() => {
+    setHighlightedMessageId((current) =>
+      current === String(messageId) ? null : current
+    );
+  }, 1800);
+}
+
   function getReplyTarget(message) {
     const replyId =
       typeof message.replyTo === "object"
-        ? message.replyTo?.id ?? message.replyTo?._id
+        ? getMessageId(message.replyTo)
         : message.replyTo;
 
     if (replyId == null) return null;
@@ -115,7 +155,7 @@ export default function MessageList({
     if (!touch) return;
 
     swipeStartRef.current = {
-      messageId: message.id,
+      messageId: getMessageId(message),
       x: touch.clientX,
       y: touch.clientY,
     };
@@ -125,7 +165,7 @@ export default function MessageList({
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
 
-    if (!start || !sameId(start.messageId, message.id)) return;
+    if (!start || !sameId(start.messageId, getMessageId(message))) return;
     if (isMine(message)) return;
 
     const touch = event.changedTouches?.[0];
@@ -161,7 +201,10 @@ export default function MessageList({
       <div className="message-list">
         {messages.map((message) => {
           const mine = isMine(message);
-          const editing = sameId(editingMessageId, message.id);
+          const editing = sameId(
+  editingMessageId,
+  getMessageId(message)
+);
           const attachment = message.attachment;
           const attachmentUrl = getAttachmentUrl(attachment);
           const isImage = attachment?.mimeType?.startsWith("image/");
@@ -172,18 +215,28 @@ export default function MessageList({
           );
 
           return (
-            <div
-              key={message.id}
-              className={`message-row ${mine ? "message-mine" : "message-theirs"}`}
-              onTouchStart={(event) => handleTouchStart(event, message)}
-              onTouchEnd={(event) => handleTouchEnd(event, message)}
-              onTouchCancel={handleTouchCancel}
-            >
-              {!mine && (
-                <div className="message-avatar-space">
-                  <Avatar user={message.sender} name={message.senderName} />
-                </div>
-              )}
+<div
+  key={getMessageId(message)}
+  ref={(element) => {
+    const messageId = getMessageId(message);
+
+    if (element) {
+      messageRefs.current.set(String(messageId), element);
+    } else {
+      messageRefs.current.delete(String(messageId));
+    }
+  }}
+  className={`message-row ${
+    mine ? "message-mine" : "message-theirs"
+  } ${
+    sameId(highlightedMessageId, getMessageId(message))
+      ? "message-highlighted"
+      : ""
+  }`}
+  onTouchStart={(event) => handleTouchStart(event, message)}
+  onTouchEnd={(event) => handleTouchEnd(event, message)}
+  onTouchCancel={handleTouchCancel}
+>
 
               <div className="message-content">
                 {!mine && (
@@ -202,22 +255,31 @@ export default function MessageList({
                     } ${editing ? "bubble-editing" : ""}`}
                   >
                     {replyTarget && (
-                      <div className="reply-quote">
-                        <div className="reply-quote-heading">
-                          <Reply size={14} />
-                          <span>
-                            {replyTarget.senderName ||
-                              (sameId(getSenderId(replyTarget), loggedInUserId)
-                                ? "You"
-                                : "Message")}
-                          </span>
-                        </div>
-
-                        <p className="reply-quote-text">
-                          {getReplyPreview(replyTarget)}
-                        </p>
-                      </div>
-                    )}
+  <button
+    type="button"
+    className="reply-quote"
+    onClick={() => jumpToMessage(getMessageId(replyTarget))}
+    title="Go to original message"
+  >
+    <div className="reply-quote-heading">
+      <Reply size={14} />
+      <span>
+        {replyTarget.senderName ||
+          (sameId(getSenderId(replyTarget), loggedInUserId)
+            ? "You"
+            : "Message")}
+      </span>
+    </div>
+{mine && (
+  <div className="message-avatar-space">
+    <Avatar user={user} />
+  </div>
+)}
+    <p className="reply-quote-text">
+      {getReplyPreview(replyTarget)}
+    </p>
+  </button>
+)}
 
                     {editing ? (
                       <div className="message-edit-form">
@@ -384,12 +446,6 @@ export default function MessageList({
                   </div>
                 )}
               </div>
-
-              {mine && (
-                <div className="message-avatar-space">
-                  <Avatar user={user} />
-                </div>
-              )}
             </div>
           );
         })}
