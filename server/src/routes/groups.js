@@ -175,12 +175,20 @@ router.get("/:groupId/messages", requireAuth, async (req, res, next) => {
     }
 
     const messages = await GroupMessage.find({
-      group: group._id,
-    })
-      .sort({ createdAt: 1 })
-      .limit(500)
-      .populate("sender", "_id username")
-      .lean();
+  group: group._id,
+})
+  .sort({ createdAt: 1 })
+  .limit(500)
+  .populate("sender", "_id username")
+  .populate({
+    path: "replyTo",
+    select: "_id text sender isDeleted deletedBy",
+    populate: {
+      path: "sender",
+      select: "_id username",
+    },
+  })
+  .lean();
 
    
 res.json({
@@ -219,6 +227,11 @@ router.patch("/:groupId/background", requireAuth, async (req, res, next) => {
       "ocean",
       "sunset",
       "forest",
+      "rose",
+      "mint",
+      "peach",
+      "night",
+      "sky",
     ];
 
     if (!mongoose.isValidObjectId(groupId)) {

@@ -15,6 +15,11 @@ const allowedBackgrounds = [
   "ocean",
   "sunset",
   "forest",
+  "rose",
+  "mint",
+  "peach",
+  "night",
+  "sky",
 ];
 
 // Check whether these users have an existing conversation

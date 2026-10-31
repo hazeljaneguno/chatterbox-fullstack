@@ -86,46 +86,241 @@ io.on("connection", (socket) => {
 
   socket.join(`user:${userId}`);
 
+ // ==========================================
+// SEND A GROUP MESSAGE
+// ==========================================
+socket.on("group:message:send", async (payload, callback) => {
+  try {
+    const { groupId, text, attachment, replyTo } = payload || {};
+
+    if (!mongoose.isValidObjectId(groupId)) {
+      return callback?.({
+        ok: false,
+        message: "Invalid group.",
+      });
+    }
+
+    const cleanText = typeof text === "string" ? text.trim() : "";
+
+    const validAttachment =
+      attachment &&
+      typeof attachment.url === "string" &&
+      attachment.url.startsWith("/uploads/") &&
+      typeof attachment.originalName === "string" &&
+      typeof attachment.mimeType === "string" &&
+      Number.isFinite(attachment.size) &&
+      attachment.size >= 0;
+
+    if (
+      (!cleanText && !validAttachment) ||
+      cleanText.length > 4000
+    ) {
+      return callback?.({
+        ok: false,
+        message:
+          "Send a message or attach a file. Messages must be at most 4000 characters.",
+      });
+    }
+
+    // Confirm that the sender belongs to the group.
+    const group = await Group.findOne({
+      _id: groupId,
+      members: userId,
+    }).select("_id name members");
+
+    if (!group) {
+      return callback?.({
+        ok: false,
+        message: "Group not found or you are not a member.",
+      });
+    }
+
+    // Validate the original message being replied to.
+    let originalMessage = null;
+
+    if (replyTo) {
+      if (!mongoose.isValidObjectId(replyTo)) {
+        return callback?.({
+          ok: false,
+          message: "Invalid reply message.",
+        });
+      }
+
+      originalMessage = await GroupMessage.findOne({
+        _id: replyTo,
+        group: group._id,
+      }).select("_id");
+
+      if (!originalMessage) {
+        return callback?.({
+          ok: false,
+          message: "Original message not found in this group.",
+        });
+      }
+    }
+
+    // Save the new group message.
+    const savedMessage = await GroupMessage.create({
+      group: group._id,
+      sender: userId,
+      replyTo: originalMessage?._id || null,
+      text: cleanText,
+      ...(validAttachment && {
+        attachment: {
+          url: attachment.url,
+          originalName: attachment.originalName,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+        },
+      }),
+    });
+
+    // Populate the sender and the original replied-to message.
+    await savedMessage.populate([
+      {
+        path: "sender",
+        select: "_id username",
+      },
+      {
+        path: "replyTo",
+        select: "_id text sender attachment",
+        populate: {
+          path: "sender",
+          select: "_id username",
+        },
+      },
+    ]);
+
+    // Prepare the message for the frontend.
+    const message = {
+      id: savedMessage._id.toString(),
+      groupId: group._id.toString(),
+
+      senderId: savedMessage.sender?._id?.toString(),
+      senderName: savedMessage.sender?.username || "User",
+
+      text: savedMessage.text,
+      attachment: savedMessage.attachment?.url
+        ? savedMessage.attachment
+        : null,
+
+      createdAt: savedMessage.createdAt,
+      updatedAt: savedMessage.updatedAt,
+
+      // Include the original message and its sender.
+      replyTo: savedMessage.replyTo
+        ? {
+            id: savedMessage.replyTo._id.toString(),
+            senderId: savedMessage.replyTo.sender?._id?.toString(),
+            senderName: savedMessage.replyTo.sender?.username || "User",
+            text: savedMessage.replyTo.text,
+            attachment: savedMessage.replyTo.attachment?.url
+              ? savedMessage.replyTo.attachment
+              : null,
+          }
+        : null,
+    };
+
+    // Broadcast to all group members.
+    for (const memberId of group.members) {
+      io.to(`user:${memberId.toString()}`).emit(
+        "group:message:new",
+        message
+      );
+    }
+
+    // Find usernames mentioned in the message.
+    const mentionedUsernames = [
+      ...new Set(
+        [...cleanText.matchAll(/@([a-zA-Z0-9_.-]+)/g)].map(
+          (match) => match[1].toLowerCase()
+        )
+      ),
+    ];
+
+    if (mentionedUsernames.length > 0) {
+      const members = await User.find({
+        _id: { $in: group.members },
+      }).select("_id username");
+
+      const mentionedMembers = members.filter(
+        (member) =>
+          mentionedUsernames.includes(member.username.toLowerCase()) &&
+          member._id.toString() !== userId
+      );
+
+      for (const member of mentionedMembers) {
+        io.to(`user:${member._id.toString()}`).emit(
+          "mention:notification",
+          {
+            messageId: savedMessage._id.toString(),
+            groupId: group._id.toString(),
+            groupName: group.name,
+            senderId: userId,
+            senderName: socket.user.username,
+            text: cleanText,
+            createdAt: savedMessage.createdAt,
+          }
+        );
+      }
+    }
+
+    // Acknowledge the sent message.
+    return callback?.({
+      ok: true,
+      message,
+    });
+  } catch (error) {
+    console.error("Group message error:", error);
+
+    return callback?.({
+      ok: false,
+      message: "Unable to send group message.",
+    });
+  }
+});
   // ==========================================
-  // SEND A GROUP MESSAGE
+  // DELETE A GROUP MESSAGE
   // ==========================================
-  socket.on("group:message:send", async (payload, callback) => {
+  
+  // ==========================================
+  // DELETE A GROUP MESSAGE
+  // ==========================================
+  socket.on("group:message:delete", async (payload, callback) => {
     try {
-      const { groupId, text, attachment } = payload || {};
+      const { messageId, deleteType } = payload || {};
 
-      if (!mongoose.isValidObjectId(groupId)) {
+      // Validate the message ID.
+      if (!mongoose.isValidObjectId(messageId)) {
         return callback?.({
           ok: false,
-          message: "Invalid group.",
+          message: "Invalid message ID.",
         });
       }
 
-      const cleanText = typeof text === "string" ? text.trim() : "";
-
-      const validAttachment =
-        attachment &&
-        typeof attachment.url === "string" &&
-        attachment.url.startsWith("/uploads/") &&
-        typeof attachment.originalName === "string" &&
-        typeof attachment.mimeType === "string" &&
-        Number.isFinite(attachment.size) &&
-        attachment.size >= 0;
-
-      if (
-        (!cleanText && !validAttachment) ||
-        cleanText.length > 4000
-      ) {
+      // Validate the deletion option.
+      if (!["deleteForYou", "deleteForEveryone"].includes(deleteType)) {
         return callback?.({
           ok: false,
-          message:
-            "Send a message or attach a file. Messages must be at most 4000 characters.",
+          message: "Invalid delete option.",
         });
       }
 
+      // Find the group message.
+      const message = await GroupMessage.findById(messageId);
+
+      if (!message) {
+        return callback?.({
+          ok: false,
+          message: "Group message not found.",
+        });
+      }
+
+      // Confirm that the user is still a member of this group.
       const group = await Group.findOne({
-        _id: groupId,
+        _id: message.group,
         members: userId,
-      }).select("_id name members");
+      }).select("_id members");
 
       if (!group) {
         return callback?.({
@@ -134,81 +329,90 @@ io.on("connection", (socket) => {
         });
       }
 
-      const savedMessage = await GroupMessage.create({
-        group: group._id,
-        sender: userId,
-        text: cleanText,
-        ...(validAttachment && {
-          attachment: {
-            url: attachment.url,
-            originalName: attachment.originalName,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-          },
-        }),
-      });
+      // ==========================================
+      // DELETE FOR YOU
+      // ==========================================
+      if (deleteType === "deleteForYou") {
+        await GroupMessage.updateOne(
+          { _id: message._id },
+          { $addToSet: { deletedFor: userId } }
+        );
 
-      const message = {
-        id: savedMessage._id.toString(),
+        const update = {
+          id: message._id.toString(),
+          groupId: group._id.toString(),
+          deletedFor: String(userId),
+          deleteType,
+        };
+
+        io.to(`user:${userId}`).emit(
+          "group:message:deleted",
+          update
+        );
+
+        return callback?.({
+          ok: true,
+          message: update,
+        });
+      }
+
+      // ==========================================
+      // DELETE FOR EVERYONE
+      // ==========================================
+
+      // A globally deleted message cannot be deleted again.
+      if (message.isDeleted) {
+        return callback?.({
+          ok: false,
+          message: "This message has already been deleted.",
+        });
+      }
+
+      // Only the original sender can delete for everyone.
+      if (String(message.sender) !== String(userId)) {
+        return callback?.({
+          ok: false,
+          message: "Only the sender can delete this message for everyone.",
+        });
+      }
+
+      // Mark the message as deleted.
+      message.isDeleted = true;
+      message.deletedBy = userId;
+      message.deletedAt = new Date();
+      message.text = "";
+      message.attachment = undefined;
+      message.replyTo = null;
+
+      await message.save();
+
+      const update = {
+        id: message._id.toString(),
         groupId: group._id.toString(),
-        senderId: userId,
-        senderName: socket.user.username,
-        text: savedMessage.text,
-        attachment: validAttachment ? savedMessage.attachment : null,
-        createdAt: savedMessage.createdAt,
+        deleteType,
+        isDeleted: true,
+        deletedBy: String(userId),
+        deletedAt: message.deletedAt,
       };
 
+      // Notify all group members.
       for (const memberId of group.members) {
         io.to(`user:${memberId.toString()}`).emit(
-          "group:message:new",
-          message
+          "group:message:deleted",
+          update
         );
       }
 
-      // Find usernames mentioned in the message.
-      const mentionedUsernames = [
-        ...new Set(
-          [...cleanText.matchAll(/@([a-zA-Z0-9_.-]+)/g)].map(
-            (match) => match[1].toLowerCase()
-          )
-        ),
-      ];
-
-      if (mentionedUsernames.length > 0) {
-        const members = await User.find({
-          _id: { $in: group.members },
-        }).select("_id username");
-
-        const mentionedMembers = members.filter(
-          (member) =>
-            mentionedUsernames.includes(member.username.toLowerCase()) &&
-            member._id.toString() !== userId
-        );
-
-        for (const member of mentionedMembers) {
-          io.to(`user:${member._id.toString()}`).emit(
-            "mention:notification",
-            {
-              messageId: savedMessage._id.toString(),
-              groupId: group._id.toString(),
-              groupName: group.name,
-              senderId: userId,
-              senderName: socket.user.username,
-              text: cleanText,
-              createdAt: savedMessage.createdAt,
-            }
-          );
-        }
-      }
-
-      // Acknowledge the sent message.
-      return callback?.({ ok: true, message });
+      return callback?.({
+        ok: true,
+        message: update,
+      });
     } catch (error) {
-      console.error("Group message error:", error);
+      console.error("Group message deletion error:", error);
 
       return callback?.({
         ok: false,
-        message: "Unable to send group message.",
+        message: "Unable to delete group message.",
       });
     }
   });

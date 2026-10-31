@@ -10,7 +10,7 @@ const conversationSettingsSchema = new mongoose.Schema(
     },
     background: {
       type: String,
-      enum: ["default", "lavender", "ocean", "sunset", "forest"],
+      enum: ["default", "lavender", "ocean", "sunset", "forest", "rose", "mint", "peach", "night", "sky "],
       default: "default",
     },
     updatedBy: {
