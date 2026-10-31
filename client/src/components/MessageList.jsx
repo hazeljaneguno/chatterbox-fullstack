@@ -95,13 +95,13 @@ export default function MessageList({
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
+const [deleteType, setDeleteType] = useState("deleteForYou");
   const loggedInUserId =
     currentUserId ?? user?.id ?? user?._id ?? user?.userId;
 
   const messageMap = new Map(
-    messages.map((message) => [
-      String(getMessageId(message)),
+    messages.map((message,index) => [
+      String(getMessageId(message)) || `message-${index}`,
       message,
     ])
   );
@@ -236,10 +236,13 @@ export default function MessageList({
   return (
     <>
       <div className="message-list">
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const mine = isMine(message);
           const deleted = message.isDeleted === true;
-          const messageId = String(getMessageId(message));
+         const rawMessageId = getMessageId(message);
+const messageId = rawMessageId != null
+  ? String(rawMessageId)
+  : "";
 
           const menuOpen = openMenuId === messageId;
           const confirmingDelete = confirmDeleteId === messageId;
@@ -260,7 +263,7 @@ export default function MessageList({
 
           return (
             <div
-              key={getMessageId(message)}
+              key={messageId || `message-${index}`}
               ref={(element) => {
                 if (element) {
                   messageRefs.current.set(messageId, element);
@@ -301,159 +304,160 @@ export default function MessageList({
                     }`}
                   >
                     {deleted ? (
-                      <div className="deleted-message">
-                        {sameId(message.deletedBy, loggedInUserId)
-                          ? "You deleted this message"
-                          : "This message was deleted"}
-                      </div>
-                    ) : (
-                      <>
-                        {replyTarget && (
-                          <button
-                            type="button"
-                            className="reply-quote"
-                            onClick={() =>
-                              jumpToMessage(getMessageId(replyTarget))
-                            }
-                            title="Go to original message"
-                          >
-                            <div className="reply-quote-heading">
-                              <Reply size={14} />
-                              <span>
-                                {getSenderDisplayName(replyTarget)}
-                              </span>
-                            </div>
+  <div className="deleted-message">
+    {sameId(message.deletedBy, loggedInUserId)
+      ? "You deleted this message"
+      : "This message was deleted"}
+  </div>
+) : (
+  <>
+    {replyTarget && (
+      <button
+        type="button"
+        className="reply-quote"
+        onClick={() =>
+          jumpToMessage(getMessageId(replyTarget))
+        }
+        title="Go to original message"
+      >
+        <div className="reply-quote-heading">
+          <Reply size={14} />
+          <span>{getSenderDisplayName(replyTarget)}</span>
+        </div>
 
-                            <p className="reply-quote-text">
-                              {getReplyPreview(replyTarget)}
-                            </p>
-                          </button>
-                        )}
+        <p className="reply-quote-text">
+          {getReplyPreview(replyTarget)}
+        </p>
+      </button>
+    )}
 
-                        {editing ? (
-                          <div className="message-edit-form">
-                            <textarea
-                              className="message-edit-input"
-                              value={editDraft}
-                              onChange={(event) =>
-                                setEditDraft(
-                                  event.target.value.slice(0, 4000)
-                                )
-                              }
-                              maxLength={4000}
-                              rows={Math.min(
-                                6,
-                                Math.max(
-                                  2,
-                                  (editDraft || "").split("\n").length
-                                )
-                              )}
-                              autoFocus
-                              aria-label="Edit message"
-                            />
+    {editing ? (
+      <>
+        {/* Keep the existing image visible while editing */}
+        {attachment && isImage && (
+          <div className="message-attachment">
+            <img
+              src={attachmentUrl}
+              alt={attachment.originalName || "Attachment"}
+              className="message-image"
+            />
+          </div>
+        )}
 
-                            <div className="message-edit-footer">
-                              <span className="edit-character-count">
-                                {(editDraft || "").length}/4000
-                              </span>
+        {/* Edit only the message text */}
+        <div className="message-edit-form">
+          <textarea
+            className="message-edit-input"
+            value={editDraft}
+            onChange={(event) =>
+              setEditDraft(event.target.value.slice(0, 4000))
+            }
+            maxLength={4000}
+            rows={Math.min(
+              6,
+              Math.max(2, (editDraft || "").split("\n").length)
+            )}
+            autoFocus
+            aria-label="Edit message"
+          />
 
-                              <div className="message-edit-actions">
-                                <button
-                                  type="button"
-                                  className="message-action-button cancel-edit-button"
-                                  onClick={cancelEditing}
-                                  disabled={savingEdit}
-                                >
-                                  <X size={15} />
-                                  Cancel
-                                </button>
+          <div className="message-edit-footer">
+            <span className="edit-character-count">
+              {(editDraft || "").length}/4000
+            </span>
 
-                                <button
-                                  type="button"
-                                  className="message-action-button save-edit-button"
-                                  onClick={() => saveEditedMessage(message)}
-                                  disabled={
-                                    savingEdit || !editDraft.trim()
-                                  }
-                                >
-                                  <SaveIcon size={15} />
-                                  {savingEdit ? "Saving..." : "Save"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {attachment && (
-                              <div className="message-attachment">
-                                {isImage ? (
-                                  <button
-                                    type="button"
-                                    className="message-image-button"
-                                    onClick={() =>
-                                      openImage(attachment, message)
-                                    }
-                                    aria-label="View image larger"
-                                  >
-                                    <img
-                                      src={attachmentUrl}
-                                      alt={
-                                        attachment.originalName ||
-                                        "Attachment"
-                                      }
-                                      className="message-image"
-                                      loading="lazy"
-                                    />
+            <div className="message-edit-actions">
+              <button
+                type="button"
+                className="message-action-button cancel-edit-button"
+                onClick={cancelEditing}
+                disabled={savingEdit}
+              >
+                <X size={15} />
+                Cancel
+              </button>
 
-                                    <span className="image-zoom-hint">
-                                      <ZoomIn size={16} />
-                                      View image
-                                    </span>
-                                  </button>
-                                ) : (
-                                  <a
-                                    href={attachmentUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="message-file-link"
-                                  >
-                                    <span className="message-file-icon">
-                                      <FileText size={20} />
-                                    </span>
+             <button
+  type="button"
+  className="message-action-button save-edit-button"
+  onClick={() => saveEditedMessage(message)}
+  disabled={savingEdit || !editDraft.trim()}
+>
+  <SaveIcon size={15} />
+  {savingEdit ? "Saving..." : "Save"}
+</button>
+            </div>
+          </div>
+        </div>
+      </>
+    ) : (
+      <>
+        {/* Normal attachment display */}
+        {attachment && (
+          <div className="message-attachment">
+            {isImage ? (
+              <button
+                type="button"
+                className="message-image-button"
+                onClick={() => openImage(attachment, message)}
+                aria-label="View image larger"
+              >
+                <img
+                  src={attachmentUrl}
+                  alt={attachment.originalName || "Attachment"}
+                  className="message-image"
+                  loading="lazy"
+                />
 
-                                    <span className="message-file-details">
-                                      <strong>
-                                        {attachment.originalName ||
-                                          "Download file"}
-                                      </strong>
-                                      <small>Open attachment</small>
-                                    </span>
-                                  </a>
-                                )}
+                <span className="image-zoom-hint">
+                  <ZoomIn size={16} />
+                  View image
+                </span>
+              </button>
+            ) : (
+              <a
+                href={attachmentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="message-file-link"
+              >
+                <span className="message-file-icon">
+                  <FileText size={20} />
+                </span>
 
-                                {mine && isImage && removeImage && (
-                                  <button
-                                    type="button"
-                                    className="remove-message-image"
-                                    onClick={() => removeImage(message)}
-                                    aria-label="Remove image attachment"
-                                    title="Remove image"
-                                  >
-                                    <X size={15} />
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                <span className="message-file-details">
+                  <strong>
+                    {attachment.originalName || "Download file"}
+                  </strong>
+                  <small>Open attachment</small>
+                </span>
+              </a>
+            )}
 
-                            {message.text?.trim() && (
-                              <div className="message-text">
-                                <MentionText text={message.text} />
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
+            {mine && isImage && removeImage && (
+              <button
+                type="button"
+                className="remove-message-image"
+                onClick={() => removeImage((message.id ?? message._id))}
+                aria-label="Remove image attachment"
+                title="Remove image"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Normal message text */}
+        {message.text?.trim() && (
+          <div className="message-text">
+            <MentionText text={message.text} />
+          </div>
+        )}
+      </>
+    )}
+  </>
+)}
                   </div>
 
                   {!editing && !deleted && (
@@ -511,19 +515,20 @@ export default function MessageList({
                               Delete for you
                             </button>
 
-                            {mine && (
-                              <button
-                                type="button"
-                                className="delete-everyone-option"
-                                onClick={() => {
-                                  setConfirmDeleteId(messageId);
-                                  setOpenMenuId(null);
-                                }}
-                              >
-                                <Trash2 size={15} />
-                                Delete for everyone
-                              </button>
-                            )}
+                           {mine && (
+  <button
+    type="button"
+    className="delete-everyone-option"
+    onClick={() => {
+      setDeleteType("deleteForEveryone");
+      setConfirmDeleteId(messageId);
+      setOpenMenuId(null);
+    }}
+  >
+    <Trash2 size={15} />
+    Delete for everyone
+  </button>
+)}
                           </div>
                         )}
                       </div>
@@ -532,42 +537,28 @@ export default function MessageList({
                 </div>
 
                 {confirmingDelete && !deleted && (
-                  <div className="delete-message-confirm">
-                    <p>
-                      {mine
-                        ? "Choose how you want to delete this message."
-                        : "Delete this message from your view?"}
-                    </p>
+  <div className="delete-message-confirm">
+  <p>
+    {deleteType === "deleteForEveryone"
+      ? "Delete this message for everyone?"
+      : "Delete this message from your view?"}
+  </p>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDelete(message, "deleteForYou")
-                      }
-                    >
-                      Delete for you
-                    </button>
+  <button
+    type="button"
+    onClick={() => handleDelete(message, deleteType)}
+  >
+    Confirm delete
+  </button>
 
-                    {mine && (
-                      <button
-                        type="button"
-                        className="confirm-delete-everyone"
-                        onClick={() =>
-                          handleDelete(message, "deleteForEveryone")
-                        }
-                      >
-                        Delete for everyone
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      className="cancel-delete-button"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+  <button
+    type="button"
+    className="cancel-delete-button"
+    onClick={() => setConfirmDeleteId(null)}
+  >
+    Cancel
+  </button>
+</div>
                 )}
 
                 {mine && !deleted && (

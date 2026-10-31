@@ -10,7 +10,6 @@ import {
 import { MessageCircle, LoaderCircle, Plus } from "lucide-react";
 
 import AuthScreen from "./components/AuthScreen.jsx";
-import Avatar from "./components/Avatar.jsx";
 import ChatSidebar from "./components/ChatSidebar.jsx";
 import ChatHeader from "./components/ChatHeader.jsx";
 import MessageComposer from "./components/MessageComposer.jsx";
@@ -744,10 +743,10 @@ async function sendMessage(event, selectedFile = null) {
     ? "group:message:send"
     : "message:send";
 
-  let attachment = null;
-
   try {
-    // 1. Upload the file first, if one was selected.
+    let attachment = null;
+
+    // Upload attachment first.
     if (selectedFile) {
       const formData = new FormData();
       formData.append("file", selectedFile);
@@ -760,39 +759,50 @@ async function sendMessage(event, selectedFile = null) {
       }
     }
 
-    // 2. Send the message and attachment through Socket.IO.
-   
-const replyMessageId = replyTo
-  ? replyTo.id ?? replyTo._id ?? null
-  : null;
+    const replyMessageId = replyTo
+      ? replyTo.id ?? replyTo._id ?? null
+      : null;
 
-const payload = isGroup
-  ? {
-      groupId: activeChat.id,
-      text,
-      attachment,
-      replyTo: replyMessageId,
-    }
-  : {
-      recipientId: activeChat.id,
-      text,
-      attachment,
-      replyTo: replyMessageId,
-    };
-
-    const result = await new Promise((resolve, reject) => {
-      socketRef.current.emit(eventName, payload, (response) => {
-        if (!response?.ok) {
-          reject(new Error(response?.message || "Message could not be sent."));
-          return;
+    const payload = isGroup
+      ? {
+          groupId: activeChat.id,
+          text,
+          attachment,
+          replyTo: replyMessageId,
         }
+      : {
+          recipientId: activeChat.id,
+          text,
+          attachment,
+          replyTo: replyMessageId,
+        };
 
-        resolve(response);
-      });
+    // Send message through Socket.IO.
+    const result = await new Promise((resolve, reject) => {
+      socketRef.current.timeout(5000).emit(
+        eventName,
+        payload,
+        (timeoutError, response) => {
+          if (timeoutError) {
+            reject(new Error("The server did not respond. Please try again."));
+            return;
+          }
+
+          if (!response?.ok) {
+            reject(
+              new Error(response?.message || "Message could not be sent.")
+            );
+            return;
+          }
+
+          resolve(response);
+        }
+      );
     });
 
-    // 3. Clear the text only after successful sending.
-   setReplyTo(null);
+    // Clear composer only after successful sending.
+    setDraft("");
+    setReplyTo(null);
 
     if (mentions.length > 0) {
       setMentionSuccessToast(
@@ -811,13 +821,11 @@ const payload = isGroup
   }
 }
 
-
-
-  function startEditing(message) {
-    setEditingMessageId(message.id);
-    setEditDraft(message.text);
-    setError("");
-  }
+function startEditing(message) {
+  setEditingMessageId(message.id ?? message._id);
+  setEditDraft(message.text || "");
+  setError("");
+}
 
   function cancelEditing() {
     setEditingMessageId("");
@@ -857,16 +865,15 @@ const payload = isGroup
     );
   }, []);
 
-function saveEditedMessage(event) {
-  event.preventDefault();
-
+function saveEditedMessage(message) {
   const text = editDraft.trim();
+  const messageId = message?.id ?? message?._id;
 
-  if (!text || !editingMessageId || savingEdit) {
-    return;
-  }
+  if (!text || !messageId || savingEdit) return;
 
-  if (!socketRef.current?.connected) {
+  const currentSocket = socketRef.current;
+
+  if (!currentSocket?.connected) {
     setError("You're offline. Please reconnect and try again.");
     return;
   }
@@ -874,9 +881,13 @@ function saveEditedMessage(event) {
   setSavingEdit(true);
   setError("");
 
-  socketRef.current.timeout(5000).emit(
-    "message:edit",
-    { messageId: editingMessageId, text },
+  const eventName = activeChat?.isGroup
+    ? "group:message:edit"
+    : "message:edit";
+
+  currentSocket.timeout(5000).emit(
+    eventName,
+    { messageId, text },
     (timeoutError, result) => {
       setSavingEdit(false);
 
@@ -886,7 +897,9 @@ function saveEditedMessage(event) {
       }
 
       if (!result?.ok) {
-        setError(result?.message || "Message could not be edited.");
+        setError(
+          result?.message || "Message could not be edited."
+        );
         return;
       }
 
@@ -894,6 +907,7 @@ function saveEditedMessage(event) {
     }
   );
 }
+
   if (checkingSession) {
     return (
       <div className="full-loading">

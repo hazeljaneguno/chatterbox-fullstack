@@ -1,7 +1,7 @@
 
 import { useEffect } from "react";
 import { MessageCircle, LoaderCircle } from "lucide-react";
-import MessageList from "./MessageList.jsx";
+import MessageList from "./MessageList/MessageList.jsx";
 import "./ConversationBody.css";
 
 export default function ConversationBody({
