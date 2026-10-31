@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { X, Check } from "lucide-react";
 import "./ChatBackgroundPicker.css";
@@ -28,6 +27,31 @@ const backgrounds = [
     id: "forest",
     label: "Forest",
     className: "background-preview-forest",
+  },
+  {
+    id: "rose",
+    label: "Rose",
+    className: "background-preview-rose",
+  },
+  {
+    id: "mint",
+    label: "Mint",
+    className: "background-preview-mint",
+  },
+  {
+    id: "peach",
+    label: "Peach",
+    className: "background-preview-peach",
+  },
+  {
+    id: "night",
+    label: "Night",
+    className: "background-preview-night",
+  },
+  {
+    id: "sky",
+    label: "Sky",
+    className: "background-preview-sky",
   },
 ];
 

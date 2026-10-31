@@ -1,0 +1,34 @@
+/* Dropdown menu default */
+.chat-options-menu {
+  background: #ffffff;
+  border: 1px solid #e8e4ef;
+}
+
+.chat-options-menu button,
+.chat-options-menu button span,
+.chat-options-menu button svg {
+  color: #332d40;
+}
+
+/* Night mode dropdown */
+.chat-header-night .chat-options-menu {
+  background: #292538;
+  border-color: #49435d;
+}
+
+.chat-header-night .chat-options-menu button,
+.chat-header-night .chat-options-menu button span,
+.chat-header-night .chat-options-menu button svg {
+  color: #f5f1ff !important;
+}
+
+.chat-header-night .chat-options-menu button:hover {
+  background: #403951;
+}
+
+/* Delete group */
+.chat-header-night .chat-options-menu .danger-option,
+.chat-header-night .chat-options-menu .danger-option span,
+.chat-header-night .chat-options-menu .danger-option svg {
+  color: #ff8585 !important;
+}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MessageCircle, LoaderCircle, LockKeyhole, Mail, UserRound, Eye, EyeOff } from "lucide-react";
 import { api } from "../api.js";
-
+import "./AuthScreen.css";
 function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");

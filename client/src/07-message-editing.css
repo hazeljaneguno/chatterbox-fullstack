@@ -1,0 +1,17 @@
+/* Message editing controls and form */
+
+/* Message editing */
+.message-content{position:relative}
+.edit-message-button{display:inline-flex;align-items:center;gap:5px;align-self:flex-end;margin:5px 2px 0;padding:4px 7px;border:0;border-radius:7px;background:transparent;color:#8b7be8;font:600 10px 'Manrope',sans-serif;cursor:pointer;opacity:.72;transition:background .18s ease,opacity .18s ease}
+.edit-message-button:hover,.edit-message-button:focus-visible{opacity:1;background:#f0edff;outline:none}
+.message-edit-form{width:min(340px,78vw);padding:10px;border:1px solid #dcd5ff;border-radius:13px;background:#fff;box-shadow:0 5px 18px #29224d0b}
+.message-edit-form textarea{display:block;width:100%;min-height:76px;resize:vertical;padding:10px;border:1px solid #e7e3f4;border-radius:9px;outline:none;color:#514b69;font:12px/1.6 'Manrope',sans-serif}
+.message-edit-form textarea:focus{border-color:#9587ed;box-shadow:0 0 0 3px #8878ed18}
+.message-edit-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:8px}
+.message-edit-actions button{display:inline-flex;align-items:center;gap:4px;padding:7px 9px;border:0;border-radius:8px;background:#f3f1fb;color:#6e6684;font:700 10px 'Manrope',sans-serif;cursor:pointer}
+.message-edit-actions button[type=submit]{background:#8170e7;color:#fff}
+.message-edit-actions button:disabled{opacity:.5;cursor:not-allowed}
+.edited-label{font-style:italic;color:#aaa4bf}
+@media(hover:hover){.message-mine .edit-message-button{opacity:0}.message-mine:hover .edit-message-button,.message-mine:focus-within .edit-message-button{opacity:1}}
+@media(max-width:720px){.edit-message-button{opacity:1}.message-edit-form{width:min(290px,75vw)}}
+

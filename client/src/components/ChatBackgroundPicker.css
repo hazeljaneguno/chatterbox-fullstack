@@ -282,3 +282,89 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+/* Existing backgrounds */
+.background-preview-default {
+  background: #f8f7fc;
+}
+
+.background-preview-lavender {
+  background: #eee8ff;
+}
+
+.background-preview-ocean {
+  background: #e0f2fe;
+}
+
+.background-preview-sunset {
+  background: #ffeadf;
+}
+
+.background-preview-forest {
+  background: #e2f0e5;
+}
+
+/* New backgrounds */
+.background-preview-rose {
+  background: #fce4ec;
+}
+
+.background-preview-mint {
+  background: #dff5e8;
+}
+
+.background-preview-peach {
+  background: #ffeadb;
+}
+
+.background-preview-night {
+  background: #252338;
+}
+
+.background-preview-sky {
+  background: #dceeff;
+}
+/* ========================================
+   CONVERSATION BACKGROUNDS
+======================================== */
+
+/* Existing chat backgrounds */
+.chat-panel.chat-background-default {
+  background: #f8f7fc;
+}
+
+.chat-panel.chat-background-lavender {
+  background: #eee8ff;
+}
+
+.chat-panel.chat-background-ocean {
+  background: #e0f2fe;
+}
+
+.chat-panel.chat-background-sunset {
+  background: #ffeadf;
+}
+
+.chat-panel.chat-background-forest {
+  background: #e2f0e5;
+}
+
+/* New chat backgrounds */
+.chat-panel.chat-background-rose {
+  background: #fce4ec;
+}
+
+.chat-panel.chat-background-mint {
+  background: #dff5e8;
+}
+
+.chat-panel.chat-background-peach {
+  background: #ffeadb;
+}
+
+.chat-panel.chat-background-night {
+  background: #252338;
+}
+
+.chat-panel.chat-background-sky {
+  background: #dceeff;
+}

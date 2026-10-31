@@ -1,0 +1,34 @@
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  position: relative;
+  color: white;
+}
+
+.avatar-small {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.coral { background: coral; }
+.purple { background: purple; }
+.blue { background: royalblue; }
+.green { background: seagreen; }
+.gold { background: goldenrod; }
+
+.online-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #22c55e;
+  border: 2px solid white;
+  border-radius: 50%;
+  right: 0;
+  bottom: 0;
+}

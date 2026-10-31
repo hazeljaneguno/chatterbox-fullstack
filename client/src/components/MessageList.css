@@ -263,7 +263,18 @@
 .message-highlighted .message-bubble {
   animation: reply-message-highlight 1.8s ease;
 }
+.message-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
 
+.sender-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7868e6;
+}
 @keyframes reply-message-highlight {
   0%, 100% {
     outline: 2px solid transparent;
@@ -273,4 +284,216 @@
     outline: 2px solid #8b75e8;
     box-shadow: 0 0 18px rgba(139, 117, 232, 0.35);
   }
+}
+/* DEFAULT */
+.conversation-body.chat-background-default .bubble-mine {
+  background: #7868e6;
+  color: #fff;
+}
+
+.conversation-body.chat-background-default .bubble-theirs {
+  background: #fff;
+  color: #332d40;
+}
+
+/* LAVENDER */
+.conversation-body.chat-background-lavender .bubble-mine {
+  background: #7868e6;
+  color: #fff;
+}
+
+.conversation-body.chat-background-lavender .bubble-theirs {
+  background: #fff;
+  color: #332d40;
+}
+
+/* OCEAN */
+.conversation-body.chat-background-ocean .bubble-mine {
+  background: #287bb5;
+  color: #fff;
+}
+
+.conversation-body.chat-background-ocean .bubble-theirs {
+  background: #fff;
+  color: #263b4b;
+}
+
+/* SUNSET */
+.conversation-body.chat-background-sunset .bubble-mine {
+  background: #d97955;
+  color: #fff;
+}
+
+.conversation-body.chat-background-sunset .bubble-theirs {
+  background: #fff;
+  color: #49342d;
+}
+
+/* FOREST */
+.conversation-body.chat-background-forest .bubble-mine {
+  background: #397c57;
+  color: #fff;
+}
+
+.conversation-body.chat-background-forest .bubble-theirs {
+  background: #fff;
+  color: #294333;
+}
+
+/* ROSE */
+.conversation-body.chat-background-rose .bubble-mine {
+  background: #c94f78;
+  color: #fff;
+}
+
+.conversation-body.chat-background-rose .bubble-theirs {
+  background: #fff;
+  color: #49303a;
+}
+
+/* MINT */
+.conversation-body.chat-background-mint .bubble-mine {
+  background: #32866b;
+  color: #fff;
+}
+
+.conversation-body.chat-background-mint .bubble-theirs {
+  background: #fff;
+  color: #29463c;
+}
+
+/* PEACH */
+.conversation-body.chat-background-peach .bubble-mine {
+  background: #d97948;
+  color: #fff;
+}
+
+.conversation-body.chat-background-peach .bubble-theirs {
+  background: #fff;
+  color: #49352c;
+}
+
+/* NIGHT */
+.conversation-body.chat-background-night .bubble-mine {
+  background: #a397ff;
+  color: #241f35;
+}
+
+.conversation-body.chat-background-night .bubble-theirs {
+  background: #383449;
+  color: #f5f1ff;
+}
+
+/* SKY */
+.conversation-body.chat-background-sky .bubble-mine {
+  background: #347ebd;
+  color: #fff;
+}
+
+.conversation-body.chat-background-sky .bubble-theirs {
+  background: #fff;
+  color: #293e52;
+}
+
+/* Message options */
+.message-options {
+  position: relative;
+}
+
+.options-message-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-options-menu {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  bottom: calc(100% + 8px);
+  min-width: 190px;
+  padding: 6px;
+  background: var(--message-menu-bg, #fff);
+  border: 1px solid var(--message-menu-border, #e8e3ee);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(30, 20, 45, 0.16);
+}
+
+.message-options-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--message-menu-text, #30283b);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.message-options-menu button:hover {
+  background: var(--message-menu-hover, #f3eff8);
+}
+
+.message-options-menu .delete-everyone-option {
+  color: #d64b5b;
+}
+
+/* Deleted message */
+.bubble-deleted {
+  background: transparent !important;
+  border: 1px solid var(--message-menu-border, #e8e3ee);
+  box-shadow: none;
+}
+
+.deleted-message {
+  padding: 3px 2px;
+  color: var(--deleted-message-color, #817987);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Delete confirmation */
+.delete-message-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--message-menu-border, #e8e3ee);
+  border-radius: 10px;
+  background: var(--message-menu-bg, #fff);
+  box-shadow: 0 5px 18px rgba(30, 20, 45, 0.1);
+}
+
+.delete-message-confirm p {
+  flex-basis: 100%;
+  margin: 0 0 3px;
+  color: var(--message-menu-text, #30283b);
+  font-size: 12px;
+}
+
+.delete-message-confirm button {
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--message-menu-hover, #f3eff8);
+  color: var(--message-menu-text, #30283b);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.delete-message-confirm .confirm-delete-everyone {
+  background: #d64b5b;
+  color: #fff;
+}
+
+.delete-message-confirm .cancel-delete-button {
+  background: transparent;
 }

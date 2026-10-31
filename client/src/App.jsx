@@ -7,11 +7,10 @@ import {
   useState,
 } from "react";
 
-import { MessageCircle, X, LoaderCircle, Plus } from "lucide-react";
+import { MessageCircle, LoaderCircle, Plus } from "lucide-react";
 
 import AuthScreen from "./components/AuthScreen.jsx";
 import Avatar from "./components/Avatar.jsx";
-import MessageList from "./components/MessageList.jsx";
 import ChatSidebar from "./components/ChatSidebar.jsx";
 import ChatHeader from "./components/ChatHeader.jsx";
 import MessageComposer from "./components/MessageComposer.jsx";
@@ -19,6 +18,10 @@ import FindPeopleModal from "./components/FindPeopleModal.jsx";
 import CreateGroupModal from "./components/CreateGroupModal.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import ChatBackgroundPicker from "./components/ChatBackgroundPicker.jsx";
+import ChatError from "./components/ChatError.jsx";
+import ConversationBody from "./components/ConversationBody.jsx";
+import ReplyPreview from "./components/ReplyPreview.jsx";
+import NotificationToasts from "./components/NotificationToasts.jsx";
 import { api, connectSocket } from "./api.js";
 import { sameId } from "./utils/chatHelpers.js";
 
@@ -130,6 +133,50 @@ function handleReply(message) {
   setReplyTo(message);
   inputRef.current?.focus();
 }
+// Handle private and group message deletion requests.
+function handleDeleteMessage(message, deleteType) {
+  const currentSocket = socketRef.current;
+
+  if (!currentSocket?.connected) {
+    setError("You're offline. Please reconnect and try again.");
+    return;
+  }
+
+  const messageId = message.id ?? message._id;
+
+  if (!messageId || !activeChat) {
+    setError("Message could not be identified.");
+    return;
+  }
+
+  const eventName = activeChat.isGroup
+    ? "group:message:delete"
+    : "message:delete";
+
+  setError("");
+
+  currentSocket.timeout(5000).emit(
+    eventName,
+    { messageId, deleteType },
+    (timeoutError, result) => {
+      if (timeoutError) {
+        setError("The server did not respond. Please try again.");
+        return;
+      }
+
+      if (!result?.ok) {
+        setError(result?.message || "Unable to delete message.");
+        return;
+      }
+
+      showNotice(
+        deleteType === "deleteForEveryone"
+          ? "Message deleted for everyone."
+          : "Message deleted for you."
+      );
+    }
+  );
+}
 // Update group messages when an attachment is removed.
 useEffect(() => {
   if (!socket) return;
@@ -184,6 +231,85 @@ useEffect(() => {
     );
   };
 }, [socket]);
+// Handle private and group message deletion updates.
+useEffect(() => {
+  if (!socket || !user) return;
+
+  const currentUserId = user.id ?? user._id ?? user.userId;
+
+  function updateDeletedMessage(updatedMessage, isGroupMessage) {
+    setChats((previousChats) =>
+      previousChats.map((chat) => {
+        if (
+          isGroupMessage &&
+          (!chat.isGroup ||
+            !sameId(chat.id, updatedMessage.groupId))
+        ) {
+          return chat;
+        }
+
+        if (!isGroupMessage && chat.isGroup) {
+          return chat;
+        }
+
+        const messages = chat.messages || [];
+
+        // Delete only from this user's view.
+        if (updatedMessage.deleteType === "deleteForYou") {
+          if (!sameId(updatedMessage.deletedFor, currentUserId)) {
+            return chat;
+          }
+
+          return {
+            ...chat,
+            messages: messages.filter(
+              (message) =>
+                !sameId(message.id ?? message._id, updatedMessage.id)
+            ),
+          };
+        }
+
+        // Keep the message, but replace its content with a placeholder.
+        if (updatedMessage.isDeleted) {
+          return {
+            ...chat,
+            messages: messages.map((message) =>
+              sameId(message.id ?? message._id, updatedMessage.id)
+                ? {
+                    ...message,
+                    text: "",
+                    attachment: null,
+                    isDeleted: true,
+                    deletedBy: updatedMessage.deletedBy,
+                    deletedAt: updatedMessage.deletedAt,
+                    replyTo: null,
+                  }
+                : message
+            ),
+          };
+        }
+
+        return chat;
+      })
+    );
+  }
+
+  function handlePrivateMessageDeleted(message) {
+    updateDeletedMessage(message, false);
+  }
+
+  function handleGroupMessageDeleted(message) {
+    updateDeletedMessage(message, true);
+  }
+
+  socket.on("message:deleted", handlePrivateMessageDeleted);
+  socket.on("group:message:deleted", handleGroupMessageDeleted);
+
+  return () => {
+    socket.off("message:deleted", handlePrivateMessageDeleted);
+    socket.off("group:message:deleted", handleGroupMessageDeleted);
+  };
+}, [socket, user]);
   const filteredChats = useMemo(() => {
     const term = search.trim().toLowerCase();
 
@@ -636,18 +762,22 @@ async function sendMessage(event, selectedFile = null) {
 
     // 2. Send the message and attachment through Socket.IO.
    
+const replyMessageId = replyTo
+  ? replyTo.id ?? replyTo._id ?? null
+  : null;
+
 const payload = isGroup
   ? {
       groupId: activeChat.id,
       text,
       attachment,
-      replyTo: replyTo?.id || null,
+      replyTo: replyMessageId,
     }
   : {
       recipientId: activeChat.id,
       text,
       attachment,
-      replyTo: replyTo?.id || null,
+      replyTo: replyMessageId,
     };
 
     const result = await new Promise((resolve, reject) => {
@@ -814,10 +944,14 @@ setShowSettings={setShowSettings}
       </div>
 
       <section
-        className={`chat-panel ${
-          mobileChatOpen ? "chat-panel-mobile-open" : ""
-        }`}
-      >
+  className={`chat-panel ${
+    mobileChatOpen ? "chat-panel-mobile-open" : ""
+  } ${
+    activeChat
+      ? `chat-background-${activeChat.background || "default"}`
+      : ""
+  }`}
+>
         {activeChat ? (
           <>
             <ChatHeader
@@ -829,96 +963,29 @@ setShowSettings={setShowSettings}
               onOpenBackgroundPicker={openBackgroundPicker}
             />
 
-            {error && (
-              <div className="inline-error" role="alert">
-                <span>{error}</span>
-                <button
-                  onClick={() => setError("")}
-                  aria-label="Dismiss error"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            )}
-
-            <div className={`conversation-body chat-background-${activeChat.background || "default"}  `}>
-              <div className="day-divider">
-                <span />
-                <p>MESSAGES</p>
-                <span />
-              </div>
-
-              {loadingMessages && (
-                <div className="loading-messages">
-                  <LoaderCircle className="spin" size={18} />
-                  Loading conversation...
-                </div>
-              )}
-
-              {!loadingMessages &&
-                (activeChat.messages || []).length === 0 && (
-                  <div className="welcome-state">
-                    <div className="welcome-icon">
-                      <MessageCircle size={27} />
-                    </div>
-                    <h3>
-                      Say hello to {activeChat.username || activeChat.name}
-                    </h3>
-                    <p>
-                      Your conversation starts here. Send the first message!
-                    </p>
-                  </div>
-                )}
+            <ChatError error={error} onDismiss={() => setError("")} />
+<ConversationBody
+  activeChat={activeChat}
+  loadingMessages={loadingMessages}
+  user={user}
+  onReply={handleReply}
+  deleteMessage={handleDeleteMessage}
+  editingMessageId={editingMessageId}
+  editDraft={editDraft}
+  savingEdit={savingEdit}
+  setEditDraft={setEditDraft}
+  saveEditedMessage={saveEditedMessage}
+  cancelEditing={cancelEditing}
+  startEditing={startEditing}
+  removeImage={removeImage}
+  bottomRef={bottomRef}
+/>
 
 
-  <MessageList
-    messages={activeChat.messages || []}
-    user={user}
-    currentUserId={user.id}
-    activeChat={activeChat}
-    isGroup={Boolean(activeChat?.isGroup)}
-    onReply={handleReply}
-    editingMessageId={editingMessageId}
-    editDraft={editDraft}
-    savingEdit={savingEdit}
-    setEditDraft={setEditDraft}
-    saveEditedMessage={saveEditedMessage}
-    cancelEditing={cancelEditing}
-    startEditing={startEditing}
-    removeImage={removeImage}
-  />
-
-
-              <div ref={bottomRef} />
-            </div>
-
-
-{replyTo && (
-  <div className="reply-preview">
-    <div className="reply-preview-content">
-      <strong>
-        Replying to {replyTo.senderName || "message"}
-      </strong>
-
-      <p>
-        {replyTo.text ||
-          (replyTo.attachment?.mimeType?.startsWith("image/")
-            ? "📷 Photo"
-            : "Attachment")}
-      </p>
-    </div>
-
-    <button
-      type="button"
-      onClick={() => setReplyTo(null)}
-      aria-label="Cancel reply"
-    >
-      <X size={18} />
-    </button>
-  </div>
-)}
-
-<MessageComposer
+            <ReplyPreview
+              replyTo={replyTo}
+              onCancel={() => setReplyTo(null)}
+            /><MessageComposer
   activeChat={activeChat}
   draft={draft}
   setDraft={setDraft}
@@ -932,8 +999,6 @@ setShowSettings={setShowSettings}
       : []
   }
 />
-
-
           </>
         ) : (
           <div className="empty-chat-panel">
@@ -969,6 +1034,7 @@ setShowSettings={setShowSettings}
   onThemeChange={handleThemeChange}
   savingTheme={savingTheme}
 />
+
 <ChatBackgroundPicker
   isOpen={backgroundPickerOpen}
   onClose={() => setBackgroundPickerOpen(false)}
@@ -991,50 +1057,13 @@ setShowSettings={setShowSettings}
         handleCreateGroup={handleCreateGroup}
       />
 
-      {toast && (
-        <div className="toast-message">
-          <span>✳</span>
-          {toast}
-        </div>
-      )}
-      {mentionToast && (
-  <div className="mention-toast" role="status">
-    <div>
-      <strong>You were mentioned!</strong>
-      <p>
-        {mentionToast.senderName} mentioned you in{" "}
-        {mentionToast.groupName}
-      </p>
-    </div>
-
-    <button
-      type="button"
-      onClick={() => setMentionToast(null)}
-      aria-label="Dismiss notification"
-    >
-      ×
-    </button>
-  </div>
-)}
-      
-{mentionSuccessToast && (
-  <div className="mention-success-toast" role="status">
-    <span className="mention-success-icon">✓</span>
-
-    <div className="mention-success-content">
-      <strong>Message sent!</strong>
-      <p>{mentionSuccessToast.replace("Message sent! ", "")}</p>
-    </div>
-
-    <button
-      type="button"
-      onClick={() => setMentionSuccessToast("")}
-      aria-label="Dismiss notification"
-    >
-      ×
-    </button>
-  </div>
-)}
+      <NotificationToasts
+        toast={toast}
+        mentionToast={mentionToast}
+        onDismissMention={() => setMentionToast(null)}
+        mentionSuccessToast={mentionSuccessToast}
+        onDismissMentionSuccess={() => setMentionSuccessToast("")}
+      />
 
     </main>
   );

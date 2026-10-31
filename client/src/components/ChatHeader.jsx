@@ -1,4 +1,4 @@
-
+import "./ChatHeader.css";
 import { useState } from "react";
 import {
   ArrowLeft,

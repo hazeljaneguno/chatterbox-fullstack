@@ -1,0 +1,35 @@
+
+.conversation-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+
+  /* Hide scrollbar while keeping scrolling enabled */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.conversation-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+}
+
+/* Keep the divider visible at the top while scrolling */
+.day-divider {
+  flex-shrink: 0;
+}
+
+/* Prevent message content from shrinking unexpectedly */
+.conversation-body > * {
+  flex-shrink: 0;
+}

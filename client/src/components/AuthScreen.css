@@ -1,0 +1,47 @@
+/* =========================
+   AUTH SCREEN TEXT COLORS
+========================= */
+
+.auth-form-side {
+  background: #ffffff;
+  color: #332d40;
+}
+
+.auth-form .eyebrow {
+  color: #7968e8;
+}
+
+.auth-form h2 {
+  color: #30283f !important;
+  opacity: 1;
+}
+
+.auth-intro {
+  color: #89839b !important;
+}
+
+.field-label {
+  color: #40384e !important;
+}
+
+.auth-input input {
+  color: #332d40 !important;
+  background: #fcfbff;
+}
+
+.auth-input input::placeholder {
+  color: #aaa3bc;
+  opacity: 1;
+}
+
+.auth-switch {
+  color: #89839b;
+}
+
+.auth-switch button {
+  color: #6854dc;
+}
+
+.auth-bottom-note {
+  color: #aaa3bc;
+}
