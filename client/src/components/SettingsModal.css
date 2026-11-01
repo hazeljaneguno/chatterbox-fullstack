@@ -270,3 +270,114 @@
     font-size: 20px;
   }
 }
+
+/* =========================
+   ACTIVE STATUS SETTINGS
+========================= */
+
+.active-status-heading {
+  margin-top: 30px;
+}
+
+.active-status-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e8e5ed);
+  border-radius: 14px;
+  background: var(--surface-color, #ffffff);
+}
+
+.active-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--accent-soft, #f0eaff);
+  color: var(--accent-color, #8064d8);
+}
+
+.active-status-description {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.active-status-description strong {
+  color: var(--text-primary, #25212d);
+  font-size: 14px;
+}
+
+.active-status-description small {
+  color: var(--text-secondary, #88818f);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.active-status-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 48px;
+  height: 27px;
+  padding: 3px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 30px;
+  background: #b9b5c0;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.active-status-switch.enabled {
+  background: #22a06b;
+}
+
+.active-status-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.active-status-switch-thumb {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+}
+
+.active-status-switch.enabled .active-status-switch-thumb {
+  transform: translateX(21px);
+}
+
+.active-status-switch:focus-visible {
+  outline: 3px solid var(--accent-color, #8064d8);
+  outline-offset: 3px;
+}
+
+.active-status-note {
+  margin-top: 10px;
+  color: var(--text-secondary, #88818f);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.settings-spinner {
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: middle;
+  animation: settings-spin 1s linear infinite;
+}
+
+@keyframes settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

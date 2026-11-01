@@ -64,7 +64,46 @@ router.get("/", requireAuth, async (req, res) => {
     });
   }
 });
+// UPDATE MY ACTIVE STATUS VISIBILITY
+router.patch("/active-status", requireAuth, async (req, res) => {
+  try {
+    const { showActiveStatus } = req.body;
 
+    if (typeof showActiveStatus !== "boolean") {
+      return res.status(400).json({
+        message: "Active status visibility must be true or false.",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: { showActiveStatus },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select("_id showActiveStatus");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    return res.json({
+      message: "Active status visibility updated.",
+      showActiveStatus: user.showActiveStatus,
+    });
+  } catch (error) {
+    console.error("Update active status error:", error);
+
+    return res.status(500).json({
+      message: "Could not update active status.",
+    });
+  }
+});
 // GET USERS WAITING FOR PRIVATE MESSAGE APPROVAL
 router.get(
   "/pending-approvals",

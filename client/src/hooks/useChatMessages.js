@@ -93,11 +93,12 @@ export default function useChatMessages({
       );
     }
 
-    function handlePresenceUpdate({ userId, online }) {
+    // Receive online/offline updates.
+    function handlePresenceUpdate({ userId, isOnline }) {
       setOnlineIds((previous) => {
         const next = new Set(previous);
 
-        if (online) {
+        if (isOnline) {
           next.add(String(userId));
         } else {
           next.delete(String(userId));

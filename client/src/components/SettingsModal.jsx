@@ -1,6 +1,13 @@
 
 import { useEffect } from "react";
-import { X, Sun, Moon, Check } from "lucide-react";
+import {
+  X,
+  Sun,
+  Moon,
+  Check,
+  CircleDot,
+  LoaderCircle,
+} from "lucide-react";
 import "./SettingsModal.css";
 
 function SettingsModal({
@@ -9,6 +16,9 @@ function SettingsModal({
   theme,
   onThemeChange,
   savingTheme = false,
+  activeStatus = true,
+  onActiveStatusChange,
+  savingActiveStatus = false,
 }) {
   useEffect(() => {
     if (!isOpen) return;
@@ -73,6 +83,7 @@ function SettingsModal({
         </header>
 
         <div className="settings-content">
+          {/* Appearance */}
           <div className="settings-section-heading">
             <h3>Appearance</h3>
             <p>Choose how Chatterbox looks on your device.</p>
@@ -114,8 +125,58 @@ function SettingsModal({
           </div>
 
           {savingTheme && (
-            <p className="settings-saving">Saving your preference...</p>
+            <p className="settings-saving">
+              Saving your preference...
+            </p>
           )}
+
+          {/* Active Status */}
+          <div className="settings-section-heading active-status-heading">
+            <h3>Privacy</h3>
+            <p>Manage how others see your activity.</p>
+          </div>
+
+          <div className="active-status-option">
+            <span className="active-status-icon">
+              <CircleDot size={22} />
+            </span>
+
+            <div className="active-status-description">
+              <strong>Active Status</strong>
+              <small>
+                Let others see when you're active on Chatterbox.
+              </small>
+            </div>
+
+            <button
+              type="button"
+              className={`active-status-switch ${
+                activeStatus ? "enabled" : ""
+              }`}
+              role="switch"
+              aria-checked={activeStatus}
+              aria-label="Show my active status"
+              disabled={savingActiveStatus}
+              onClick={() =>
+                onActiveStatusChange?.(!activeStatus)
+              }
+            >
+              <span className="active-status-switch-thumb" />
+            </button>
+          </div>
+
+          {savingActiveStatus && (
+            <p className="settings-saving">
+              <LoaderCircle size={14} className="settings-spinner" />
+              Saving Active Status...
+            </p>
+          )}
+
+          <p className="active-status-note">
+            {activeStatus
+              ? "Others can see when you're online and when you were last active."
+              : "Your online and last-active status is hidden from others."}
+          </p>
         </div>
       </section>
     </div>

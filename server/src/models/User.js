@@ -43,6 +43,24 @@ const userSchema = new mongoose.Schema(
       enum: ["light", "dark"],
       default: "light",
     },
+// Actual presence status
+activeStatus: {
+  type: String,
+  enum: ["online", "offline", "away"],
+  default: "offline",
+},
+
+// Whether other users can see your active status
+showActiveStatus: {
+  type: Boolean,
+  default: true,
+},
+
+// Last time the user went offline
+lastSeen: {
+  type: Date,
+  default: null,
+},
 
     passwordHash: {
       type: String,

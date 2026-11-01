@@ -7,6 +7,8 @@ import { registerPrivateMessageHandlers } from "./privateMessageHandlers.js";
 import { registerPrivateMessageEdit } from "./privateMessageEdit.js";
 import { registerPrivateMessageDelete } from "./privateMessageDelete.js";
 
+import { registerPresenceHandlers } from "./presenceHandlers.js";
+
 export function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
     const userId = socket.user.id;
@@ -16,6 +18,8 @@ export function registerSocketHandlers(io) {
     // Every authenticated user joins their personal room.
     socket.join(`user:${userId}`);
 
+    // Presence handlers
+    registerPresenceHandlers(io, socket);
     // Private messages
     registerPrivateMessageHandlers(io, socket);
     registerPrivateMessageEdit(io, socket);

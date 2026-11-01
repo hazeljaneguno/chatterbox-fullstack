@@ -19,7 +19,6 @@ import {
   getMessageId,
   getAttachmentUrl,
   getReplyPreview,
-  formatTime,
 } from "../../utils/messageHelpers";
 
 export default function MessageBubble({
