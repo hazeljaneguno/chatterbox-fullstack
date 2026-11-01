@@ -1,6 +1,5 @@
 
 import { io } from "socket.io-client";
-
 export const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000"
 ).replace(/\/$/, "");
@@ -32,6 +31,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ theme }),
     }),
+updateActiveStatus: (showActiveStatus) =>
+  request("/api/user/active-status", {
+    method: "PATCH",
+    body: JSON.stringify({ showActiveStatus }),
+  }),
 
   // Private conversation settings
   getConversationSettings: (conversationId) =>
