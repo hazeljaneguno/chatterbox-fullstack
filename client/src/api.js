@@ -1,9 +1,8 @@
-
 import { io } from "socket.io-client";
+
 export const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000"
 ).replace(/\/$/, "");
-
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {

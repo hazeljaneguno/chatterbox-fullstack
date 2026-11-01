@@ -172,27 +172,7 @@ async function handleActiveStatusChange(nextValue) {
   setSavingActiveStatus(true);
 
   try {
-    const response = await fetch(
-      `${API_URL}/api/users/active-status`,
-      {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          showActiveStatus: nextValue,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Unable to update Active Status."
-      );
-    }
+    const data = await api.updateActiveStatus(nextValue);
 
     setShowActiveStatus(data.showActiveStatus);
   } catch (error) {
