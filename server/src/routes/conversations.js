@@ -3,7 +3,6 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import ConversationSettings from "../models/ConversationSettings.js";
-import Message from "../models/Message.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { conversationKey } from "./messages.js";
 
@@ -21,11 +20,6 @@ const allowedBackgrounds = [
   "night",
   "sky",
 ];
-
-// Check whether these users have an existing conversation
-async function hasConversation(key) {
-  return Message.exists({ conversationKey: key });
-}
 
 // Get shared private conversation settings
 router.get("/:userId/settings", requireAuth, async (req, res, next) => {
@@ -49,15 +43,7 @@ router.get("/:userId/settings", requireAuth, async (req, res, next) => {
       });
     }
 
-    const key = conversationKey(req.user._id, otherUser._id);
-
-    const existingConversation = await hasConversation(key);
-
-    if (!existingConversation) {
-      return res.status(404).json({
-        message: "Conversation not found.",
-      });
-    }
+    const key = conversationKey(req.user._id, otherUser._id);=
 
     const settings = await ConversationSettings.findOne({
       conversationKey: key,
@@ -102,13 +88,6 @@ router.patch("/:userId/settings", requireAuth, async (req, res, next) => {
 
     const key = conversationKey(req.user._id, otherUser._id);
 
-    const existingConversation = await hasConversation(key);
-
-    if (!existingConversation) {
-      return res.status(404).json({
-        message: "Conversation not found.",
-      });
-    }
 
     const settings = await ConversationSettings.findOneAndUpdate(
       { conversationKey: key },
