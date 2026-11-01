@@ -35,6 +35,7 @@ const allowedOrigins = config.clientUrl
   .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
+console.log("Allowed frontend origins:", allowedOrigins);
 
 // CORS — must run before API routes
 app.use(
@@ -44,14 +45,21 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error("Origin is not allowed by CORS."));
+      return callback(new Error(`Origin is not allowed by CORS: ${origin}`));
     },
     credentials: true,
-    methods: ["GET,HEAD,PUT,PATCH,POST,DELETE"],
+    methods: [
+      "GET",
+      "HEAD",
+      "PUT",
+      "PATCH",
+      "POST",
+      "DELETE",
+      "OPTIONS",
+    ],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
