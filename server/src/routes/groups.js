@@ -215,6 +215,118 @@ res.json({
     next(error);
   }
 });
+
+// Add multiple members to an existing group
+router.patch("/:groupId/members", requireAuth, async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const requestedMembers = req.body?.memberIds;
+
+    if (!mongoose.isValidObjectId(groupId)) {
+      return res.status(400).json({
+        message: "Invalid group ID.",
+      });
+    }
+
+    if (
+      !Array.isArray(requestedMembers) ||
+      requestedMembers.length === 0
+    ) {
+      return res.status(400).json({
+        message: "Please select at least one member.",
+      });
+    }
+
+    if (
+      requestedMembers.some(
+        (id) => !mongoose.isValidObjectId(String(id))
+      )
+    ) {
+      return res.status(400).json({
+        message: "One or more member IDs are invalid.",
+      });
+    }
+
+    // Only the group creator can add members.
+    const group = await Group.findOne({
+      _id: groupId,
+      creator: req.user._id,
+    });
+
+    if (!group) {
+      return res.status(404).json({
+        message: "Group not found or you are not allowed to add members.",
+      });
+    }
+
+    // Remove duplicate IDs and existing members.
+    const newMemberIds = [
+      ...new Set(requestedMembers.map(String)),
+    ].filter(
+      (id) => !group.members.some(
+        (memberId) => String(memberId) === id
+      )
+    );
+
+    if (newMemberIds.length === 0) {
+      return res.status(400).json({
+        message: "All selected users are already members.",
+      });
+    }
+
+    if (group.members.length + newMemberIds.length > 50) {
+      return res.status(400).json({
+        message: "A group can have a maximum of 50 members.",
+      });
+    }
+
+    const users = await User.find({
+      _id: { $in: newMemberIds },
+    }).select("_id username");
+
+    if (users.length !== newMemberIds.length) {
+      return res.status(400).json({
+        message: "One or more selected users do not exist.",
+      });
+    }
+
+    group.members.push(...newMemberIds);
+    await group.save();
+
+    const updatedGroup = await Group.findById(group._id)
+      .populate("members", "_id username")
+      .lean();
+
+    const result = {
+      id: updatedGroup._id.toString(),
+      name: updatedGroup.name,
+      creatorId: updatedGroup.creator.toString(),
+      background: updatedGroup.background || "default",
+      members: updatedGroup.members.map((member) => ({
+        id: member._id.toString(),
+        username: member.username,
+      })),
+    };
+
+    // Notify existing and newly added members.
+    const io = req.app.get("io");
+
+    for (const member of updatedGroup.members) {
+      io?.to(`user:${member._id.toString()}`).emit(
+        "group:members:updated",
+        { group: result }
+      );
+    }
+
+    return res.json({
+      message: "Members added successfully.",
+      group: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Change a group's shared background
 router.patch("/:groupId/background", requireAuth, async (req, res, next) => {
   try {

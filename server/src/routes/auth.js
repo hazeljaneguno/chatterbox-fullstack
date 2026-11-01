@@ -25,6 +25,9 @@ function publicUser(user) {
     id: user._id.toString(),
     username: user.username,
     email: user.email,
+    role: user.role || "member",
+    canPrivateMessage: user.canPrivateMessage === true,
+    theme: user.theme || "light",
   };
 }
 
@@ -114,11 +117,13 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await User.findOne({
-      $or: [
-        { email: login },
-        { usernameLower: login },
-      ],
-    }).select("+passwordHash username email usernameLower");
+  $or: [
+    { email: login },
+    { usernameLower: login },
+  ],
+}).select(
+  "+passwordHash username email usernameLower role canPrivateMessage theme"
+);
 
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({

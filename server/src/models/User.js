@@ -9,7 +9,14 @@ const userSchema = new mongoose.Schema(
       minlength: 2,
       maxlength: 30,
     },
-    usernameLower: { type: String, required: true, unique: true, index: true },
+
+    usernameLower: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
     email: {
       type: String,
       required: true,
@@ -19,12 +26,29 @@ const userSchema = new mongoose.Schema(
       index: true,
       maxlength: 254,
     },
+
+    role: {
+      type: String,
+      enum: ["admin", "member"],
+      default: "member",
+    },
+
+    canPrivateMessage: {
+      type: Boolean,
+      default: false,
+    },
+
     theme: {
-  type: String,
-  enum: ["light", "dark"],
-  default: "light",
-},
-    passwordHash: { type: String, required: true, select: false },
+      type: String,
+      enum: ["light", "dark"],
+      default: "light",
+    },
+
+    passwordHash: {
+      type: String,
+      required: true,
+      select: false,
+    },
   },
   { timestamps: true }
 );

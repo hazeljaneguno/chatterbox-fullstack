@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema(
@@ -6,21 +7,25 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
     deletedAt: {
       type: Date,
       default: null,
     },
+
     deletedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
+
     deletedFor: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
     conversationKey: {
       type: String,
       required: true,
@@ -41,9 +46,28 @@ const messageSchema = new mongoose.Schema(
 
     text: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
       maxlength: 4000,
+    },
+
+    attachment: {
+      url: {
+        type: String,
+        default: null,
+      },
+      originalName: {
+        type: String,
+        default: "",
+      },
+      mimeType: {
+        type: String,
+        default: "",
+      },
+      size: {
+        type: Number,
+        default: 0,
+      },
     },
 
     // The original message being replied to

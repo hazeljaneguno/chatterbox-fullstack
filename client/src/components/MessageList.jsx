@@ -87,6 +87,8 @@ export default function MessageList({
   onReply,
   removeImage,
   deleteMessage,
+  mentionSuccessToast,
+  setMentionSuccessToast,
 }) {
   const swipeStartRef = useRef(null);
   const messageRefs = useRef(new Map());

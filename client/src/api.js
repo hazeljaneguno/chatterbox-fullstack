@@ -7,12 +7,12 @@ export const API_URL = (
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
+    ...options,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
       ...(options.headers || {}),
+      "Content-Type": "application/json",
     },
-    ...options,
   });
 
   const data = await response.json().catch(() => ({}));
@@ -25,43 +25,53 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-
   // Account settings
-// Account settings
-updateTheme: (theme) =>
-  request("/api/settings/theme", {
-    method: "PATCH",
-    body: JSON.stringify({ theme }),
-  }),
+  updateTheme: (theme) =>
+    request("/api/settings/theme", {
+      method: "PATCH",
+      body: JSON.stringify({ theme }),
+    }),
 
-// Private conversation settings
-getConversationSettings: (userId) =>
-  request(`/api/conversations/${encodeURIComponent(userId)}/settings`),
+  // Private conversation settings
+  getConversationSettings: (conversationId) =>
+    request(
+      `/api/conversations/${encodeURIComponent(conversationId)}/settings`
+    ),
 
-updateConversationBackground: (userId, background) =>
-  request(`/api/conversations/${encodeURIComponent(userId)}/settings`, {
-    method: "PATCH",
-    body: JSON.stringify({ background }),
-  }),
+  updateConversationBackground: (conversationId, background) =>
+    request(
+      `/api/conversations/${encodeURIComponent(conversationId)}/settings`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ background }),
+      }
+    ),
 
-// Group conversation settings
-updateGroupBackground: (groupId, background) =>
-  request(`/api/groups/${encodeURIComponent(groupId)}/background`, {
-    method: "PATCH",
-    body: JSON.stringify({ background }),
-  }),
+  // Group conversation settings
+  updateGroupBackground: (groupId, background) =>
+    request(
+      `/api/groups/${encodeURIComponent(groupId)}/background`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ background }),
+      }
+    ),
+
   // Authentication
   me: () => request("/api/auth/me"),
+
   signup: (payload) =>
     request("/api/auth/signup", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
   login: (payload) =>
     request("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
   logout: () =>
     request("/api/auth/logout", {
       method: "POST",
@@ -70,6 +80,7 @@ updateGroupBackground: (groupId, background) =>
   // Users and private messages
   users: (search = "") =>
     request(`/api/users?search=${encodeURIComponent(search)}`),
+
   messages: (userId) =>
     request(`/api/messages/${encodeURIComponent(userId)}`),
 
@@ -81,13 +92,21 @@ updateGroupBackground: (groupId, background) =>
       method: "POST",
       body: JSON.stringify(payload),
     }),
-deleteGroup: (groupId) =>
-  request(`/api/groups/${encodeURIComponent(groupId)}`, {
-    method: "DELETE",
-  }),
+
+  addGroupMembers: (groupId, memberIds) =>
+    request(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+      method: "PATCH",
+      body: JSON.stringify({ memberIds }),
+    }),
+
+  deleteGroup: (groupId) =>
+    request(`/api/groups/${encodeURIComponent(groupId)}`, {
+      method: "DELETE",
+    }),
+
   groupMessages: (groupId) =>
     request(`/api/groups/${encodeURIComponent(groupId)}/messages`),
-    
+
   // File attachments
   uploadFile: async (formData) => {
     const response = await fetch(`${API_URL}/api/uploads`, {
@@ -104,7 +123,6 @@ deleteGroup: (groupId) =>
 
     return data;
   },
-
 };
 
 export function connectSocket() {

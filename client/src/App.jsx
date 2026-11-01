@@ -23,7 +23,7 @@ import ReplyPreview from "./components/ReplyPreview.jsx";
 import NotificationToasts from "./components/NotificationToasts.jsx";
 import { api, connectSocket } from "./api.js";
 import { sameId } from "./utils/chatHelpers.js";
-
+import useMessageActions from "./hooks/useMessageActions";
 import useChatMessages from "./hooks/useChatMessages";
 import useChatSocket from "./hooks/useChatSocket";
 
@@ -33,10 +33,7 @@ export default function App() {
   const [chats, setChats] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [search, setSearch] = useState("");
-  const [draft, setDraft] = useState("");
-  const [editingMessageId, setEditingMessageId] = useState("");
-  const [editDraft, setEditDraft] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
+
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [newSearch, setNewSearch] = useState("");
@@ -56,19 +53,59 @@ export default function App() {
   const [savingGroup, setSavingGroup] = useState(false);
 const [socket, setSocket] = useState(null);
 const [mentionToast, setMentionToast] = useState(null);
-const [mentionSuccessToast, setMentionSuccessToast] = useState("");
+const [draft, setDraft] = useState("");
 const [replyTo, setReplyTo] = useState(null);
+const [editDraft, setEditDraft] = useState("");
+const [editingMessageId, setEditingMessageId] = useState("");
+const [savingEdit, setSavingEdit] = useState(false);
   const bottomRef = useRef(null);
-  const inputRef = useRef(null);
-  const socketRef = useRef(null);
   const toastTimer = useRef(null);
   const activeIdRef = useRef(activeId);
+  const inputRef = useRef(null);
+  const socketRef = useRef(null);
+const [mentionSuccessToast, setMentionSuccessToast] = useState("");
 const [showSettings, setShowSettings] = useState(false);
 const [backgroundPickerOpen, setBackgroundPickerOpen] = useState(false);
 const [theme, setTheme] = useState("light");
 const [savingTheme, setSavingTheme] = useState(false);
 const [savingBackground, setSavingBackground] = useState(false);
   const activeChat = chats.find((chat) => sameId(chat.id, activeId));
+  
+const showNotice = useCallback((message) => {
+  setToast(message);
+
+  if (toastTimer.current) {
+    window.clearTimeout(toastTimer.current);
+  }
+
+  toastTimer.current = window.setTimeout(() => setToast(""), 2800);
+}, []);
+  const {
+  sendMessage,
+  handleReply,
+  handleDeleteMessage,
+  startEditing,
+  cancelEditing,
+  saveEditedMessage,
+  removeImage,
+} = useMessageActions({
+  activeChat,
+  draft,
+  setDraft,
+  replyTo,
+  setReplyTo,
+  inputRef,
+  socketRef,
+  showNotice,
+  setError,
+  setMentionSuccessToast,
+  editDraft,
+  setEditDraft,
+  setEditingMessageId,
+  setSavingEdit,
+  savingEdit,
+});
+
 useChatMessages({
   socket,
   user,
@@ -83,6 +120,7 @@ useChatSocket({
   setError,
   setMentionToast,
 });
+
 function openBackgroundPicker(chat) {
   if (!chat) return;
 
@@ -128,54 +166,7 @@ try {
     setSavingBackground(false);
   }
 }
-function handleReply(message) {
-  setReplyTo(message);
-  inputRef.current?.focus();
-}
-// Handle private and group message deletion requests.
-function handleDeleteMessage(message, deleteType) {
-  const currentSocket = socketRef.current;
 
-  if (!currentSocket?.connected) {
-    setError("You're offline. Please reconnect and try again.");
-    return;
-  }
-
-  const messageId = message.id ?? message._id;
-
-  if (!messageId || !activeChat) {
-    setError("Message could not be identified.");
-    return;
-  }
-
-  const eventName = activeChat.isGroup
-    ? "group:message:delete"
-    : "message:delete";
-
-  setError("");
-
-  currentSocket.timeout(5000).emit(
-    eventName,
-    { messageId, deleteType },
-    (timeoutError, result) => {
-      if (timeoutError) {
-        setError("The server did not respond. Please try again.");
-        return;
-      }
-
-      if (!result?.ok) {
-        setError(result?.message || "Unable to delete message.");
-        return;
-      }
-
-      showNotice(
-        deleteType === "deleteForEveryone"
-          ? "Message deleted for everyone."
-          : "Message deleted for you."
-      );
-    }
-  );
-}
 // Update group messages when an attachment is removed.
 useEffect(() => {
   if (!socket) return;
@@ -363,15 +354,6 @@ async function handleThemeChange(nextTheme) {
     setSavingTheme(false);
   }
 }
-  const showNotice = useCallback((message) => {
-    setToast(message);
-
-    if (toastTimer.current) {
-      window.clearTimeout(toastTimer.current);
-    }
-
-    toastTimer.current = window.setTimeout(() => setToast(""), 2800);
-  }, []);
 
   const addOrUpdateChat = useCallback((person) => {
     setChats((previous) => {
@@ -687,6 +669,10 @@ async function handleThemeChange(nextTheme) {
 useEffect(() => {
   if (!activeChat || activeChat.isGroup) return;
 
+  console.log("Active chat:", activeChat);
+  console.log("Chat ID:", activeChat.id);
+  console.log("Chat MongoDB ID:", activeChat._id);
+
   let cancelled = false;
 
   api.getConversationSettings(activeChat.id)
@@ -694,19 +680,19 @@ useEffect(() => {
       if (cancelled) return;
 
       setChats((previous) =>
-  previous.map((chat) => {
-    if (!sameId(chat.id, activeChat.id)) return chat;
+        previous.map((chat) => {
+          if (!sameId(chat.id, activeChat.id)) return chat;
 
-    const savedBackground = background || "default";
+          const savedBackground = background || "default";
 
-    if (chat.background === savedBackground) return chat;
+          if (chat.background === savedBackground) return chat;
 
-    return {
-      ...chat,
-      background: savedBackground,
-    };
-  })
-);
+          return {
+            ...chat,
+            background: savedBackground,
+          };
+        })
+      );
     })
     .catch((err) => {
       if (!cancelled) {
@@ -718,195 +704,6 @@ useEffect(() => {
     cancelled = true;
   };
 }, [activeChat?.id, activeChat?.isGroup]);
-async function sendMessage(event, selectedFile = null) {
-  event.preventDefault();
-
-  const text = draft.trim();
-
-  if ((!text && !selectedFile) || !activeChat) return;
-
-  if (!socketRef.current?.connected) {
-    setError("You're offline from the chat server. Reconnect and try again.");
-    throw new Error("You're offline from the chat server.");
-  }
-
-  setError("");
-
-  const isGroup = activeChat.isGroup;
-  const groupName = activeChat.name || "your group";
-
-  const mentions = isGroup
-    ? [...new Set(text.match(/@[a-zA-Z0-9_.-]+/g) || [])]
-    : [];
-
-  const eventName = isGroup
-    ? "group:message:send"
-    : "message:send";
-
-  try {
-    let attachment = null;
-
-    // Upload attachment first.
-    if (selectedFile) {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await api.uploadFile(formData);
-      attachment = response.attachment;
-
-      if (!attachment?.url) {
-        throw new Error("The server did not return the uploaded file.");
-      }
-    }
-
-    const replyMessageId = replyTo
-      ? replyTo.id ?? replyTo._id ?? null
-      : null;
-
-    const payload = isGroup
-      ? {
-          groupId: activeChat.id,
-          text,
-          attachment,
-          replyTo: replyMessageId,
-        }
-      : {
-          recipientId: activeChat.id,
-          text,
-          attachment,
-          replyTo: replyMessageId,
-        };
-
-    // Send message through Socket.IO.
-    const result = await new Promise((resolve, reject) => {
-      socketRef.current.timeout(5000).emit(
-        eventName,
-        payload,
-        (timeoutError, response) => {
-          if (timeoutError) {
-            reject(new Error("The server did not respond. Please try again."));
-            return;
-          }
-
-          if (!response?.ok) {
-            reject(
-              new Error(response?.message || "Message could not be sent.")
-            );
-            return;
-          }
-
-          resolve(response);
-        }
-      );
-    });
-
-    // Clear composer only after successful sending.
-    setDraft("");
-    setReplyTo(null);
-
-    if (mentions.length > 0) {
-      setMentionSuccessToast(
-        `Message sent! You mentioned ${mentions.join(", ")} in ${groupName}.`
-      );
-
-      setTimeout(() => setMentionSuccessToast(""), 4000);
-    }
-
-    inputRef.current?.focus();
-
-    return result;
-  } catch (error) {
-    setError(error.message || "Unable to send your message.");
-    throw error;
-  }
-}
-
-function startEditing(message) {
-  setEditingMessageId(message.id ?? message._id);
-  setEditDraft(message.text || "");
-  setError("");
-}
-
-  function cancelEditing() {
-    setEditingMessageId("");
-    setEditDraft("");
-    setSavingEdit(false);
-  }
-
-  const removeImage = useCallback((messageId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to remove this image?"
-    );
-
-    if (!confirmed) return;
-
-    const currentSocket = socketRef.current;
-
-    if (!currentSocket?.connected) {
-      setError("You're offline. Please reconnect and try again.");
-      return;
-    }
-
-    setError("");
-
-    currentSocket.timeout(5000).emit(
-      "group:message:remove-attachment",
-      { messageId },
-      (timeoutError, result) => {
-        if (timeoutError) {
-          setError("The server did not respond. Please try again.");
-          return;
-        }
-
-        if (!result?.ok) {
-          setError(result?.message || "Unable to remove image.");
-        }
-      }
-    );
-  }, []);
-
-function saveEditedMessage(message) {
-  const text = editDraft.trim();
-  const messageId = message?.id ?? message?._id;
-
-  if (!text || !messageId || savingEdit) return;
-
-  const currentSocket = socketRef.current;
-
-  if (!currentSocket?.connected) {
-    setError("You're offline. Please reconnect and try again.");
-    return;
-  }
-
-  setSavingEdit(true);
-  setError("");
-
-  const eventName = activeChat?.isGroup
-    ? "group:message:edit"
-    : "message:edit";
-
-  currentSocket.timeout(5000).emit(
-    eventName,
-    { messageId, text },
-    (timeoutError, result) => {
-      setSavingEdit(false);
-
-      if (timeoutError) {
-        setError("The server did not respond. Please try again.");
-        return;
-      }
-
-      if (!result?.ok) {
-        setError(
-          result?.message || "Message could not be edited."
-        );
-        return;
-      }
-
-      cancelEditing();
-    }
-  );
-}
 
   if (checkingSession) {
     return (
@@ -993,6 +790,8 @@ setShowSettings={setShowSettings}
   startEditing={startEditing}
   removeImage={removeImage}
   bottomRef={bottomRef}
+  mentionSuccessToast={mentionSuccessToast}
+  setMentionSuccessToast={setMentionSuccessToast}
 />
 
 

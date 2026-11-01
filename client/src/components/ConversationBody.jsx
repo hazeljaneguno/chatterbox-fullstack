@@ -19,6 +19,8 @@ export default function ConversationBody({
   startEditing,
   removeImage,
   bottomRef,
+  mentionSuccessToast,
+  setMentionSuccessToast,
 }) {
   // Keep hooks before conditional returns.
   useEffect(() => {
@@ -81,6 +83,8 @@ export default function ConversationBody({
         cancelEditing={cancelEditing}
         startEditing={startEditing}
         removeImage={removeImage}
+        mentionSuccessToast={mentionSuccessToast}
+        setMentionSuccessToast={setMentionSuccessToast}
       />
 
       <div ref={bottomRef} />
