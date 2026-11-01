@@ -16,9 +16,16 @@ async function request(path, options = {}) {
 
   const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(data.message || "Something went wrong.");
-  }
+if (!response.ok) {
+  console.error("API request failed:", {
+    status: response.status,
+    response: data,
+  });
+
+  throw new Error(
+    data.message || `Request failed with status ${response.status}`
+  );
+}
 
   return data;
 }
@@ -31,7 +38,7 @@ export const api = {
       body: JSON.stringify({ theme }),
     }),
 updateActiveStatus: (showActiveStatus) =>
-  request("/api/user/active-status", {
+  request("/api/users/active-status", {
     method: "PATCH",
     body: JSON.stringify({ showActiveStatus }),
   }),
