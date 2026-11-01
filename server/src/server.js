@@ -27,6 +27,20 @@ import messageHistoryRoutes from "./routes/messageHistory.js";
 const app = express();
 const server = http.createServer(app);
 
+// CORS — must run before API routes
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin is not allowed by CORS."));
+    },
+    credentials: true,
+  })
+);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -40,19 +54,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Security
 app.use(helmet());
-app.use("/api/messages", messageHistoryRoutes);
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Origin is not allowed by CORS."));
-    },
-    credentials: true,
-  })
-);
 
 
 // Middleware
@@ -74,6 +75,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/uploads", uploadRoutes);
+
+app.use("/api/messages", messageHistoryRoutes);
 app.use("/api/messages", messageRoutes);
 
 // Socket.IO
