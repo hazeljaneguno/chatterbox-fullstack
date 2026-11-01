@@ -16,7 +16,7 @@ function SettingsModal({
   theme,
   onThemeChange,
   savingTheme = false,
-  activeStatus = true,
+  showActiveStatus = true,
   onActiveStatusChange,
   savingActiveStatus = false,
 }) {
@@ -151,14 +151,14 @@ function SettingsModal({
             <button
               type="button"
               className={`active-status-switch ${
-                activeStatus ? "enabled" : ""
+                showActiveStatus ? "enabled" : ""
               }`}
               role="switch"
-              aria-checked={activeStatus}
+              aria-checked={showActiveStatus}
               aria-label="Show my active status"
               disabled={savingActiveStatus}
               onClick={() =>
-                onActiveStatusChange?.(!activeStatus)
+                onActiveStatusChange?.(!showActiveStatus)
               }
             >
               <span className="active-status-switch-thumb" />
@@ -173,7 +173,7 @@ function SettingsModal({
           )}
 
           <p className="active-status-note">
-            {activeStatus
+            {showActiveStatus
               ? "Others can see when you're online and when you were last active."
               : "Your online and last-active status is hidden from others."}
           </p>

@@ -61,12 +61,17 @@ app.use(
   })
 );
 
+// Security
+app.use(
+  helmet({
+   crossOriginResourcePolicy: {
+    policy: "cross-origin",
+   }, 
+  })
+);
+
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Security
-app.use(helmet());
-
 
 // Middleware
 app.use(express.json({ limit: "20kb" }));

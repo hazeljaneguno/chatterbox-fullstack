@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -39,7 +38,8 @@ export default function App() {
   const [newSearch, setNewSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [toast, setToast] = useState("");
-
+  const [showActiveStatus, setShowActiveStatus] = useState(true);
+  const [savingActiveStatus, setSavingActiveStatus] = useState(false);
   const [error, setError] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [onlineIds, setOnlineIds] = useState(() => new Set());
@@ -166,7 +166,42 @@ try {
     setSavingBackground(false);
   }
 }
+async function handleActiveStatusChange(nextValue) {
+  if (savingActiveStatus) return;
 
+  setSavingActiveStatus(true);
+
+  try {
+    const response = await fetch(
+      `${API_URL}/api/users/active-status`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          showActiveStatus: nextValue,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to update Active Status."
+      );
+    }
+
+    setShowActiveStatus(data.showActiveStatus);
+  } catch (error) {
+    console.error("Active Status update failed:", error);
+    alert(error.message);
+  } finally {
+    setSavingActiveStatus(false);
+  }
+}
 // Update group messages when an attachment is removed.
 useEffect(() => {
   if (!socket) return;
@@ -846,6 +881,9 @@ setShowSettings={setShowSettings}
   theme={theme}
   onThemeChange={handleThemeChange}
   savingTheme={savingTheme}
+  showActiveStatus={showActiveStatus}
+  onActiveStatusChange={handleActiveStatusChange}
+  savingActiveStatus={savingActiveStatus}
 />
 
 <ChatBackgroundPicker
