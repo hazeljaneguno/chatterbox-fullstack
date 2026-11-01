@@ -43,7 +43,7 @@ router.get("/:userId/settings", requireAuth, async (req, res, next) => {
       });
     }
 
-    const key = conversationKey(req.user._id, otherUser._id);=
+    const key = conversationKey(req.user._id, otherUser._id);
 
     const settings = await ConversationSettings.findOne({
       conversationKey: key,
